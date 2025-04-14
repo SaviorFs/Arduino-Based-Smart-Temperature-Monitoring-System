@@ -1,0 +1,10 @@
+# Ignore certificates
+WebSocketServer/cert/
+
+# Ignore node_modules
+WebSocketServer/node_modules/
+
+# Ignore Arduino build files
+*.elf
+*.hex
+*.bin

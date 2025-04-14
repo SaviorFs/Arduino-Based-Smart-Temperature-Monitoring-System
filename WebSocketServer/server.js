@@ -1,45 +1,27 @@
-const fs = require('fs');
-const https = require('https');
 const WebSocket = require('ws');
-const path = require('path');
 
-// this SSL Certificate paths
-const certOptions = {
-  key: fs.readFileSync(path.join(__dirname, 'cert', 'private.key')),
-  cert: fs.readFileSync(path.join(__dirname, 'cert', 'certificate.crt')),
-  ca: fs.readFileSync(path.join(__dirname, 'cert', 'ca_bundle.crt'))
-};
-
-// this creates HTTPS server
-const httpsServer = https.createServer(certOptions);
-
-// this binds WebSocket server to HTTPS
-const wss = new WebSocket.Server({ server: httpsServer });
-
-let clients = [];
+const wss = new WebSocket.Server({ port: 8081 });
 
 wss.on('connection', (ws) => {
-  console.log("🔌 New device connected");
-  clients.push(ws);
+  console.log('Client connected');
 
-  ws.on('message', (message) => {
-    console.log("Received:", message);
-    // this broadcasts to other clients in this case it will be like the dashboard receiving Arduino data
-    clients.forEach((client) => {
+  ws.on('message', (msg) => {
+    const message = msg.toString(); // this will convert the buffer to string
+    console.log('Received:', message);
+
+    // now this will forward to all other clients
+    wss.clients.forEach((client) => {
       if (client !== ws && client.readyState === WebSocket.OPEN) {
-        client.send(message);
+        client.send(message); // this is now a readable string
       }
     });
   });
 
   ws.on('close', () => {
-    clients = clients.filter((c) => c !== ws);
-    console.log("A device disconnected");
+    console.log('Client disconnected');
   });
 
-  ws.send(JSON.stringify({ message: "Connected to wss WebSocket server" }));
+  ws.send(JSON.stringify({ message: "Connected to WebSocket server" }));
 });
 
-httpsServer.listen(8081, () => {
-  console.log("Secure WebSocket server running at wss://realtimetempmonitor.com:8081");
-});
+console.log('WebSocket server running at ws://localhost:8081');

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Temperature Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h2>Temperature Monitoring Dashboard</h2>
+    <p>Current Temperature: <span id="tempDisplay">--</span>°C</p>
+    <p>Status: <span id="statusDisplay">--</span></p>
+
+    <div class="thresholds">
+      <input id="coldInput" type="number" step="0.1" placeholder="Cold Threshold (°C)" />
+      <input id="hotInput" type="number" step="0.1" placeholder="Hot Threshold (°C)" />
+      <button onclick="sendThresholds()">Set Thresholds</button>
+    </div>
+  </div>
+</body>
+</html>
