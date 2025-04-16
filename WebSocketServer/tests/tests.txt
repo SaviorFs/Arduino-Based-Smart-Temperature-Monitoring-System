@@ -1,0 +1,20 @@
+WebSocket Server Initialization Test
+The Node.js WebSocket server was implemented using the ws library and configured to listen on port 8081. The server setup was validated by running node server.js and confirming that the message "✅ WebSocket server running at ws://localhost:8081" appeared in the terminal. This confirmed that the server was actively listening for incoming connections.
+
+WebSocket Client Connection Handling Test
+The server listens for client connections and logs "Client connected" when a new connection is established. To verify this behavior, both the Arduino device and the browser frontend were used to initiate connections. Successful connection events were confirmed by observing the terminal output of the server. Disconnection events were also tested by manually closing WebSocket clients, which triggered the "❌ Client disconnected" log, confirming the server properly detected and cleaned up closed connections.
+
+Data Relay and Broadcast Functionality Test
+The server is designed to act as a relay between clients, where any message received from one client is forwarded to all other connected clients. This functionality was verified by establishing two WebSocket connections simultaneously—one from the Arduino device and another using the browser frontend. When the Arduino sent a temperature message, the server output included a readable JSON string (converted from a Buffer using toString()), and the same message was received by the browser. This confirmed that message forwarding was functioning as intended.
+
+WebSocketKing Testing
+WebSocketKing (https://websocketking.com/) was used extensively to test real-time WebSocket traffic between clients and the server. It was used to manually simulate browser clients and confirm that messages were being received in the expected format. Connections to ws://localhost:8081 and wss://realtimetempmonitor.com:8443 were tested, and in both cases, the dashboard received the expected JSON payloads from the Arduino. This tool was critical in confirming bidirectional communication and identifying whether the server was properly relaying messages.
+
+Open Port Validation Test
+To ensure that external devices (like the Arduino) could access the WebSocket server running on a local machine, external port accessibility was tested using the Open Port Checker at https://www.yougetsignal.com/tools/open-ports/. Ports 8081, 8082, 8443, and 8888 were tested during various phases of development depending on the port configuration used for the Arduino and browser. The tool confirmed whether ports were open from the internet-facing side and helped troubleshoot NAT and firewall issues when connections failed.
+
+NGINX Reverse Proxy and Secure WebSocket Integration
+To support secure WebSocket connections (wss://), an NGINX reverse proxy was configured to forward traffic from realtimetempmonitor.com:8443 to the local WebSocket server on port 8081. The configuration allowed both secure connections from the browser and plain WebSocket connections from the Arduino on a different port. The NGINX server was tested by verifying that wss://realtimetempmonitor.com:8443 could connect from the dashboard and that messages were still relayed successfully. This setup allowed full compatibility between secure frontend clients and non-secure Arduino clients without modifying the server-side logic.
+
+Buffer to String Conversion Validation
+During development, an issue was encountered where Arduino-sent messages appeared in the server logs as raw buffers instead of readable JSON. This was resolved by converting the buffer to a string using msg.toString() before logging and forwarding. This fix was tested by reviewing the server logs and frontend payloads in WebSocketKing to ensure that all forwarded data was now correctly formatted and parsed by the browser without error.
