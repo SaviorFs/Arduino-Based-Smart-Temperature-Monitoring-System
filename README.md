@@ -67,7 +67,7 @@ Tools used during testing include:
 
 ## Deployment
 
-Secure connections are handled using NGINX reverse proxy on port 8443 for WSS traffic. The WebSocket server runs on port 8081 locally. Port forwarding was configured to allow secure and non-secure traffic from both browser and Arduino clients.
+Secure connections are handled using NGINX reverse proxy on port 8443 for WSS traffic. The WebSocket server runs on port 8081 locally. Port forwarding was configured to allow secure and non-secure traffic from both browser and Arduino clients..
 
 ## License
 
