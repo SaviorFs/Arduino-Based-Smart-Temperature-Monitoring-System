@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Temperature Monitor</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Smart Temperature Monitoring</h1>
+        <div id="temperature-display">
+           <h2>Current Temperature: <span id="temp-value">--</span>°F</h2>
+        </div>
+	<div id="virtual-led" style="width: 30px; height: 30px; border-radius: 50%; margin: auto; background-color: gray;"></div>
+        <div id="thresholds">
+            <label for="threshold">Set Temperature Threshold (°C):</label>
+            <input type="number" id="threshold" min="0" max="50">
+            <button id="set-threshold">Set Threshold</button>
+        </div>
+        <div id="status-indicator">
+            <p>LED Status: <span id="led-status">Unknown</span></p>
+        </div>
+        <button id="login-redirect">Login</button>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script src="app.js"></script>
+<script>
+    firebase.auth().onAuthStateChanged(user => {
+        if (!user) {
+            alert("Access Denied! Please log in first.");
+            window.location.href = "login.html";
+        }
+    });
+</script>
+
+</body>
+</html>
+
