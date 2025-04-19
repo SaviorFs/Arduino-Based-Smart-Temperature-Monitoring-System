@@ -1,22 +1,60 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Temperature Dashboard</title>
-  <link rel="stylesheet" href="styles.css" />
-  <script defer src="app.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Temperature Monitor</title>
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
 <body>
   <div class="container">
-    <h2>Temperature Monitoring Dashboard</h2>
-    <p>Current Temperature: <span id="tempDisplay">--</span>°C</p>
-    <p>Status: <span id="statusDisplay">--</span></p>
+    <h1>Smart Temperature Monitoring</h1>
 
-    <div class="thresholds">
-      <input id="coldInput" type="number" step="0.1" placeholder="Cold Threshold (°C)" />
-      <input id="hotInput" type="number" step="0.1" placeholder="Hot Threshold (°C)" />
-      <button onclick="sendThresholds()">Set Thresholds</button>
+    <div id="temperature-display">
+      <h2>Current Temperature: <span id="temp-value">--</span>°F</h2>
+    </div>
+
+    <div id="virtual-led"></div>
+
+    <div id="thresholds">
+      <label for="threshold">Set Temperature Threshold (°F):</label>
+      <input type="number" id="threshold" min="0" max="150" step="1">
+      <button id="set-threshold" type="button">Set Threshold</button>
+    </div>
+
+    <div id="status-indicator">
+      <p>LED Status: <span id="led-status">Unknown</span></p>
+    </div>
+
+    <div class="action-buttons">
+      <button id="login-redirect" type="button">Go to Login</button>
+      <button id="logout" type="button">Logout</button>
     </div>
   </div>
+
+  <script src="firebase-config.js"></script>
+  <script src="app.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      firebase.auth().onAuthStateChanged(user => {
+        if (!user) {
+          alert("Access Denied! Please log in first.");
+          window.location.href = "login.html";
+        }
+      });
+
+      const loginBtn = document.getElementById("login-redirect");
+      if (loginBtn) {
+        loginBtn.addEventListener("click", () => {
+          window.location.href = "login.html";
+        });
+      }
+    });
+  </script>
 </body>
 </html>
