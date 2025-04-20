@@ -10,3 +10,24 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
+
+// session tracking and login logging
+firebase.auth().onAuthStateChanged(user => {
+  if (user) {
+    const uid = user.uid;
+
+    const sessionRef = firebase.database().ref("sessions/" + uid);
+    sessionRef.set({
+      email: user.email,
+      status: "active",
+      timestamp: Date.now()
+    });
+    sessionRef.onDisconnect().remove();
+
+    firebase.database().ref("activityLogs/" + uid).push({
+      event: "login",
+      timestamp: Date.now(),
+      email: user.email
+    });
+  }
+});

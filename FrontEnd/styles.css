@@ -1,37 +1,83 @@
 body {
   font-family: Arial, sans-serif;
-  text-align: center;
+  margin: 0;
+  padding: 0;
   background-color: #f4f4f4;
 }
 
 .container {
-  width: 50%;
-  margin: auto;
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  width: 90%;
+  max-width: 600px;
+  margin: 40px auto;
+  background: #fff;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+  text-align: center;
 }
 
-#temperature-display {
-  font-size: 24px;
-  margin: 20px 0;
+h1, h2 {
+  color: #333;
+  margin-bottom: 20px;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+input[type="email"],
+input[type="password"],
+input[type="number"] {
+  padding: 10px;
+  font-size: 16px;
+  width: 100%;
+  border-radius: 5px;
+  border: 1px solid #ccc;
 }
 
 button {
-  background: #28a745;
+  background-color: #007bff;
   color: white;
-  padding: 10px;
   border: none;
+  padding: 10px 16px;
+  font-size: 16px;
+  border-radius: 5px;
   cursor: pointer;
-  margin-top: 10px;
 }
 
 button:hover {
-  background: #218838;
+  background-color: #0056b3;
 }
 
-/* 🔵 Style for virtual LED */
+.action-buttons {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.threshold-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.threshold-inputs label {
+  font-weight: bold;
+  margin-bottom: 5px;
+  display: block;
+}
+
+.threshold-inputs input {
+  padding: 8px;
+  width: 100%;
+  font-size: 15px;
+}
+
 #virtual-led {
   width: 30px;
   height: 30px;
@@ -40,6 +86,83 @@ button:hover {
   background-color: gray;
 }
 
-.action-buttons {
+table {
+  width: 100%;
+  border-collapse: collapse;
   margin-top: 20px;
+}
+
+th, td {
+  padding: 12px;
+  border: 1px solid #ddd;
+}
+
+th {
+  background-color: #007bff;
+  color: white;
+}
+
+td button {
+  margin: 0 2px;
+}
+
+/* this is for the responsive design */
+@media screen and (max-width: 600px) {
+  .container {
+    width: 90%;
+    padding: 15px;
+  }
+
+  h1 {
+    font-size: 20px;
+  }
+
+  h2 {
+    font-size: 18px;
+  }
+
+  input,
+  button {
+    font-size: 14px;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  table {
+    font-size: 14px;
+  }
+
+  td button {
+    padding: 6px 10px;
+    font-size: 14px;
+  }
+  .admin-table {
+    margin: auto;
+    border-collapse: collapse;
+    width: 90%;
+  }
+  
+  .admin-table th,
+  .admin-table td {
+    border: 1px solid #ccc;
+    padding: 10px;
+    text-align: center;
+  }
+  
+  .admin-table th {
+    background-color: #f2f2f2;
+    color: #333;
+  }
+  
+  .admin-table tr:nth-child(even) {
+    background-color: #f9f9f9;
+  }
+  
+  .admin-table tr:hover {
+    background-color: #e0e0e0;
+  }
+  
 }

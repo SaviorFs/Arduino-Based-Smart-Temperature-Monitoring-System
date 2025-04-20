@@ -1,0 +1,56 @@
+<nav class="navbar">
+    <div class="nav-left">
+      <a href="index.html">Current Temperature</a>
+      <a href="threshold.html">Threshold Monitor</a>
+    </div>
+  
+    <div class="nav-right">
+      <span id="user-email">Logged in as: (loading...)</span>
+      <button id="logout">Logout</button>
+    </div>
+  </nav>
+  
+  <style>
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #333;
+      padding: 10px 20px;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+  
+    .navbar a {
+      color: white;
+      text-decoration: none;
+      margin-right: 15px;
+    }
+  
+    .navbar a:hover {
+      text-decoration: underline;
+    }
+  
+    .nav-left, .nav-right {
+      display: flex;
+      align-items: center;
+    }
+  
+    #user-email {
+      margin-right: 10px;
+    }
+  
+    #logout {
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+  
+    #logout:hover {
+      background-color: #c82333;
+    }
+  </style>
+  

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Threshold Monitor - Smart Temp Monitor</title>
+  <link rel="stylesheet" href="styles.css">
+
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+  <script src="firebase-config.js"></script>
+</head>
+<body>
+  
+  <div id="navbar-placeholder"></div>
+
+  <div class="container">
+    <h1>Threshold Monitor</h1>
+
+    <div class="threshold-inputs">
+      <div>
+        <label for="cold">Cold Threshold (°C):</label>
+        <input type="number" id="cold" step="0.1" placeholder="Enter cold threshold">
+      </div>
+      <div>
+        <label for="hot">Hot Threshold (°C):</label>
+        <input type="number" id="hot" step="0.1" placeholder="Enter hot threshold">
+      </div>
+      <button id="save-thresholds">Save Thresholds</button>
+    </div>
+  </div>
+
+  <script>
+    let socket;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      // this loads Navbar
+      fetch("navbar.html")
+        .then(res => res.text())
+        .then(html => {
+          document.getElementById("navbar-placeholder").innerHTML = html;
+
+          firebase.auth().onAuthStateChanged(user => {
+            if (user) {
+              const emailEl = document.getElementById("user-email");
+              if (emailEl) emailEl.textContent = "Logged in as: " + user.email;
+
+              const logoutBtn = document.getElementById("logout");
+              if (logoutBtn) {
+                logoutBtn.addEventListener("click", () => {
+                  firebase.auth().signOut().then(() => {
+                    window.location.href = "login.html";
+                  }).catch(err => {
+                    alert("Logout failed: " + err.message);
+                  });
+                });
+              }
+            }
+          });
+        });
+
+      // this will help protect page
+      firebase.auth().onAuthStateChanged(user => {
+        if (!user) {
+          alert("Access denied. Please log in.");
+          window.location.href = "login.html";
+        }
+      });
+
+      // this is the WebSocket connection
+      socket = new WebSocket("ws://localhost:8888");
+      socket.onopen = () => console.log("WebSocket connected");
+      socket.onerror = (e) => console.warn("WebSocket error:", e);
+      socket.onclose = () => console.warn("WebSocket disconnected");
+
+      // this loads current thresholds
+      firebase.database().ref().once("value").then(snapshot => {
+        const data = snapshot.val();
+        if (data) {
+          if (data.coldThreshold !== undefined) {
+            document.getElementById("cold").value = data.coldThreshold;
+          }
+          if (data.hotThreshold !== undefined) {
+            document.getElementById("hot").value = data.hotThreshold;
+          }
+        }
+      });
+
+      document.getElementById("save-thresholds").addEventListener("click", saveThresholds);
+    });
+
+    function saveThresholds() {
+      const cold = parseFloat(document.getElementById("cold").value);
+      const hot = parseFloat(document.getElementById("hot").value);
+
+      if (isNaN(cold) || isNaN(hot)) {
+        alert("Please enter valid numeric thresholds.");
+        return;
+      }
+
+      // this updates Firebase
+      firebase.database().ref().update({
+        coldThreshold: cold,
+        hotThreshold: hot
+      }).then(() => {
+        alert("Thresholds saved to Firebase.");
+      }).catch(err => {
+        alert("Firebase error: " + err.message);
+      });
+
+      // this sends to Arduino
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ coldThreshold: cold, hotThreshold: hot }));
+        console.log("Sent to Arduino:", { coldThreshold: cold, hotThreshold: hot });
+      } else {
+        console.warn("WebSocket not open, couldn't send to Arduino.");
+      }
+    }
+  </script>
+</body>
+</html>

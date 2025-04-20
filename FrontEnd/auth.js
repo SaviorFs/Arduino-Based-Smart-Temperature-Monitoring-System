@@ -1,11 +1,11 @@
 document.addEventListener("DOMContentLoaded", function () {
     const auth = firebase.auth();
   
-    // Register User
+    // register user
     const registerForm = document.getElementById("register-form");
     if (registerForm) {
       registerForm.addEventListener("submit", (e) => {
-        e.preventDefault(); // Prevent reload
+        e.preventDefault(); // this prevents a reload
   
         const email = document.getElementById("reg-email").value;
         const password = document.getElementById("reg-password").value;

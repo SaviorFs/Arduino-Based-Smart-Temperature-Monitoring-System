@@ -8,3 +8,11 @@ WebSocketServer/node_modules/
 *.elf
 *.hex
 *.bin
+ 
+firebase-service-account.json
+cert/
+*.key
+*.crt
+*.pem
+node_modules/
+.env

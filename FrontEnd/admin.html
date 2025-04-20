@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Panel - Smart Temp Monitor</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Admin Panel</h1>
+
+    <div class="action-buttons" style="margin-bottom: 20px;">
+      <button id="logout">Logout</button>
+      <button onclick="downloadTemperatureCSV()">Download Temp Report</button>
+    </div>
+
+    <div class="admin-table">
+      <table class="admin-table" cellpadding="10" cellspacing="0">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Status</th>
+            <th>Terminate?</th>
+            <th>Download</th>
+          </tr>
+        </thead>
+        <tbody id="session-body">
+          <tr><td colspan="4">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="firebase-config.js"></script>
+  <script>
+    firebase.auth().onAuthStateChanged(async user => {
+      if (!user) {
+        alert("Not logged in.");
+        return window.location.href = "login.html";
+      }
+
+      const roleSnap = await firebase.database().ref("roles/" + user.uid + "/role").once("value");
+      const role = roleSnap.val();
+
+      if (role !== "admin") {
+        alert("Access denied. Admins only.");
+        return window.location.href = "login.html";
+      }
+
+      const tbody = document.getElementById("session-body");
+      const db = firebase.database();
+
+      db.ref("sessions").on("value", snapshot => {
+        const data = snapshot.val();
+        tbody.innerHTML = "";
+
+        if (data) {
+          Object.entries(data).forEach(([uid, session]) => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${session.email}</td>
+              <td>${session.status}</td>
+              <td><button onclick="terminateSession('${uid}')">Yes</button></td>
+              <td><button onclick="downloadTemperatureCSV()">Download</button></td>
+            `;
+            tbody.appendChild(row);
+          });
+        } else {
+          tbody.innerHTML = "<tr><td colspan='4'>No active sessions</td></tr>";
+        }
+      });
+    });
+
+    document.getElementById("logout").addEventListener("click", () => {
+      const user = firebase.auth().currentUser;
+      if (user) {
+        firebase.database().ref("activityLogs/" + user.uid).push({
+          event: "logout",
+          timestamp: Date.now(),
+          email: user.email
+        });
+      }
+
+      firebase.auth().signOut()
+        .then(() => {
+          alert("Logged out.");
+          window.location.href = "login.html";
+        });
+    });
+
+    function terminateSession(uid) {
+      firebase.database().ref("sessions/" + uid).remove()
+        .then(() => alert("Session terminated"))
+        .catch(err => alert("Failed: " + err.message));
+    }
+
+    function downloadTemperatureCSV() {
+      const db = firebase.database();
+      db.ref("temperatureLogs").once("value", snapshot => {
+        const logs = snapshot.val();
+        if (!logs) {
+          alert("No data found.");
+          return;
+        }
+
+        let csv = "Timestamp,Temperature (°C)\n";
+        Object.values(logs).forEach(entry => {
+          const time = new Date(entry.timestamp).toLocaleString();
+          csv += `${time},${entry.temperature}\n`;
+        });
+
+        const blob = new Blob([csv], { type: "text/csv" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `temperature_log_${Date.now()}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      });
+    }
+  </script>
+</body>
+</html>

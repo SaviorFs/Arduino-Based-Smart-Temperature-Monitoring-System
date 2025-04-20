@@ -1,0 +1,93 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Temperature Chart</title>
+  <link rel="stylesheet" href="styles.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Live Temperature Chart</h1>
+    <canvas id="tempChart" width="400" height="200"></canvas>
+
+    <div class="action-buttons">
+      <button onclick="window.location.href='index.html'">Back to Dashboard</button>
+    </div>
+  </div>
+
+ 
+  <script src="firebase-config.js"></script>
+  <script>
+    firebase.auth().onAuthStateChanged(user => {
+      if (!user) {
+        alert("Access Denied. Please log in.");
+        window.location.href = "login.html";
+        return;
+      }
+
+      const db = firebase.database();
+      const chartRef = db.ref("temperatureLogs");
+
+      const ctx = document.getElementById("tempChart").getContext("2d");
+      const tempChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: "Temperature (°C)",
+            data: [],
+            backgroundColor: 'rgba(0,123,255,0.2)',
+            borderColor: 'rgba(0,123,255,1)',
+            borderWidth: 2,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          animation: false,
+          scales: {
+            xAxes: [{
+              type: 'time',
+              time: {
+                unit: 'minute',
+                tooltipFormat: 'h:mm:ss a'
+              },
+              scaleLabel: {
+                display: true,
+                labelString: 'Time'
+              }
+            }],
+            yAxes: [{
+              ticks: {
+                beginAtZero: false
+              },
+              scaleLabel: {
+                display: true,
+                labelString: 'Temperature (°C)'
+              }
+            }]
+          }
+        }
+      });
+
+      // this loads and listens for data updates
+      chartRef.limitToLast(25).on("child_added", snapshot => {
+        const entry = snapshot.val();
+        const time = new Date(entry.timestamp);
+        tempChart.data.labels.push(time);
+        tempChart.data.datasets[0].data.push(entry.temperature);
+        tempChart.update();
+      });
+    });
+  </script>
+</body>
+</html>

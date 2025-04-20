@@ -4,8 +4,8 @@
 #include <ArduinoJson.h>
 
 // WiFi Credentials
-#define WIFI_SSID "" //wifi username
-#define WIFI_PASS "" //wifi password
+#define WIFI_SSID ""
+#define WIFI_PASS ""
 
 // DHT11 Sensor Setup
 #define DHTPIN 7
@@ -20,11 +20,11 @@ DHT dht(DHTPIN, DHTTYPE);
 WebSocketsClient client;
 bool isConnected = false;
 
-// temperature thresholds
 float coldThreshold = 25.8;
 float hotThreshold = 26.3;
 unsigned long lastReconnectAttempt = 0;
 const unsigned long reconnectInterval = 5000;
+String lastLEDStatus = "";
 
 void setup() {
   Serial.begin(9600);
@@ -58,7 +58,6 @@ void loop() {
     return;
   }
 
-  // I will collect the temperature first
   float temp = dht.readTemperature();
   if (isnan(temp)) {
     Serial.println("Failed to read temperature");
@@ -68,89 +67,75 @@ void loop() {
   Serial.print("Temperature: ");
   Serial.println(temp);
 
-  // this will update LEDs based on user set thresholds
-  updateLEDs(temp);
+  String status = updateLEDs(temp);
 
-  // this sends data through the WebSocket
-  String message = "{\"temperature\":" + String(temp) + "}";
+  // this will send only what's needed
+  StaticJsonDocument<100> doc;
+  doc["temperature"] = temp;
+  doc["ledStatus"] = status;
+
+  String message;
+  serializeJson(doc, message);
   client.sendTXT(message);
   Serial.println("Sent: " + message);
 
   delay(2000);
 }
 
-void connectToWebSocket() {
-  Serial.println("Connecting to WebSocket...");
-  client.begin("realtimetempmonitor.com", 8443, "/");
-  client.onEvent(webSocketEvent);
-  client.enableHeartbeat(5000, 1000, 3);
-}
+String updateLEDs(float temp) {
+  String status;
 
-void updateLEDs(float temp) {
   if (temp <= coldThreshold) {
     digitalWrite(BLUE_LED, HIGH);
     digitalWrite(GREEN_LED, LOW);
     digitalWrite(RED_LED, LOW);
+    status = "BLUE";
   } else if (temp < hotThreshold) {
     digitalWrite(BLUE_LED, LOW);
     digitalWrite(GREEN_LED, HIGH);
     digitalWrite(RED_LED, LOW);
+    status = "GREEN";
   } else {
     digitalWrite(BLUE_LED, LOW);
     digitalWrite(GREEN_LED, LOW);
     digitalWrite(RED_LED, HIGH);
+    status = "RED";
   }
 
-  Serial.print("LED State Updated Cold: ");
-  Serial.print(coldThreshold);
-  Serial.print("Hot: ");
-  Serial.print(hotThreshold);
-  Serial.print("Temp: ");
-  Serial.println(temp);
+  if (status != lastLEDStatus) {
+    Serial.print("LED Changed to: ");
+    Serial.println(status);
+    lastLEDStatus = status;
+  }
+
+  return status;
+}
+
+void connectToWebSocket() {
+  Serial.println("Connecting to WebSocket...");
+  client.begin("10.0.0.102", 8888, "/"); // this is localhost for now
+  client.onEvent(webSocketEvent);
+  client.enableHeartbeat(5000, 1000, 3);
 }
 
 void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
-  switch (type) {
-    case WStype_CONNECTED:
-      Serial.println("WebSocket Connected");
-      client.sendTXT("{\"status\":\"Arduino Connected\"}");
-      isConnected = true;
-      break;
+  if (type == WStype_CONNECTED) {
+    Serial.println("WebSocket Connected");
+    isConnected = true;
+  } else if (type == WStype_DISCONNECTED) {
+    Serial.println("WebSocket Disconnected");
+    isConnected = false;
+  } else if (type == WStype_TEXT) {
+    StaticJsonDocument<200> doc;
+    DeserializationError error = deserializeJson(doc, payload);
+    if (!error) {
+      if (doc.containsKey("coldThreshold")) coldThreshold = doc["coldThreshold"];
+      if (doc.containsKey("hotThreshold")) hotThreshold = doc["hotThreshold"];
 
-    case WStype_DISCONNECTED:
-      Serial.println("WebSocket Disconnected");
-      isConnected = false;
-      break;
-
-    case WStype_TEXT: {
-      Serial.print("Message from server: ");
-      Serial.println((char*)payload);
-
-      StaticJsonDocument<200> doc;
-      DeserializationError error = deserializeJson(doc, payload);
-      if (!error) {
-        bool updated = false;
-        if (doc.containsKey("coldThreshold")) {
-          coldThreshold = doc["coldThreshold"];
-          Serial.print("Cold Threshold Updated: ");
-          Serial.println(coldThreshold);
-          updated = true;
-        }
-        if (doc.containsKey("hotThreshold")) {
-          hotThreshold = doc["hotThreshold"];
-          Serial.print("Hot Threshold Updated: ");
-          Serial.println(hotThreshold);
-          updated = true;
-        }
-
-        if (updated) {
-          float temp = dht.readTemperature();
-          if (!isnan(temp)) {
-            updateLEDs(temp); 
-          }
-        }
+      float temp = dht.readTemperature();
+      if (!isnan(temp)) {
+        updateLEDs(temp);
       }
-      break;
     }
   }
 }

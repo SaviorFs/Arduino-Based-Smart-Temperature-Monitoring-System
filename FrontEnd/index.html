@@ -4,57 +4,61 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Smart Temperature Monitor</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="styles.css">
 
-  <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+  <script src="firebase-config.js"></script>
 </head>
 <body>
+  <div id="navbar-container"></div>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      fetch("navbar.html")
+        .then(res => res.text())
+        .then(html => {
+          document.getElementById("navbar-container").innerHTML = html;
+
+          firebase.auth().onAuthStateChanged(user => {
+            if (user) {
+              const emailEl = document.getElementById("user-email");
+              if (emailEl) emailEl.textContent = "Logged in as: " + user.email;
+
+              const logoutBtn = document.getElementById("logout");
+              if (logoutBtn) {
+                logoutBtn.addEventListener("click", () => {
+                  firebase.auth().signOut().then(() => {
+                    window.location.href = "login.html";
+                  }).catch(err => {
+                    alert("Logout failed: " + err.message);
+                  });
+                });
+              }
+            } else {
+              alert("You must be logged in to view this page.");
+              window.location.href = "login.html";
+            }
+          });
+        });
+    });
+  </script>
+
   <div class="container">
     <h1>Smart Temperature Monitoring</h1>
 
     <div id="temperature-display">
-      <h2>Current Temperature: <span id="temp-value">--</span>°F</h2>
+      <h2>Current Temperature: <span id="temp-value">--</span>°C</h2>
     </div>
 
-    <div id="virtual-led"></div>
-
-    <div id="thresholds">
-      <label for="threshold">Set Temperature Threshold (°F):</label>
-      <input type="number" id="threshold" min="0" max="150" step="1">
-      <button id="set-threshold" type="button">Set Threshold</button>
-    </div>
+    <div id="virtual-led" class="led-indicator"></div>
 
     <div id="status-indicator">
       <p>LED Status: <span id="led-status">Unknown</span></p>
-    </div>
-
-    <div class="action-buttons">
-      <button id="login-redirect" type="button">Go to Login</button>
-      <button id="logout" type="button">Logout</button>
+      <p>Temperature Status: <span id="statusDisplay">--</span></p>
     </div>
   </div>
 
-  <script src="firebase-config.js"></script>
   <script src="app.js"></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      firebase.auth().onAuthStateChanged(user => {
-        if (!user) {
-          alert("Access Denied! Please log in first.");
-          window.location.href = "login.html";
-        }
-      });
-
-      const loginBtn = document.getElementById("login-redirect");
-      if (loginBtn) {
-        loginBtn.addEventListener("click", () => {
-          window.location.href = "login.html";
-        });
-      }
-    });
-  </script>
 </body>
 </html>
