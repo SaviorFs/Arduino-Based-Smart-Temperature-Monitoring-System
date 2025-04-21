@@ -12,7 +12,26 @@
   <script src="firebase-config.js"></script>
 </head>
 <body>
-  <div id="navbar-container"></div>
+  <div class="page-container">
+    <!-- navbar inside white box -->
+    <div id="navbar-container"></div>
+
+    <div class="container">
+      <h1>Smart Temperature Monitoring</h1>
+
+      <div id="temperature-display">
+        <h2>Current Temperature: <span id="temp-value">--</span>°C</h2>
+      </div>
+
+      <div id="virtual-led" class="led-indicator"></div>
+
+      <div id="status-indicator">
+        <p>LED Status: <span id="led-status">Unknown</span></p>
+        <p>Temperature Status: <span id="statusDisplay">--</span></p>
+      </div>
+    </div>
+  </div>
+
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       fetch("navbar.html")
@@ -25,6 +44,38 @@
               const emailEl = document.getElementById("user-email");
               if (emailEl) emailEl.textContent = "Logged in as: " + user.email;
 
+              // this is admin link
+              firebase.database().ref("roles/" + user.uid + "/role").once("value").then(snapshot => {
+                if (snapshot.val() === "admin") {
+                  const adminLink = document.createElement("a");
+                  adminLink.href = "admin.html";
+                  adminLink.textContent = "Admin Panel";
+                  document.querySelector(".nav-left")?.appendChild(adminLink);
+                }
+              });
+
+              // this is the kick detection
+              firebase.database().ref("kicked/" + user.uid).on("value", (snap) => {
+                if (snap.exists()) {
+                  alert("You have been removed by the admin.");
+                  firebase.auth().signOut().then(() => {
+                    window.location.href = "login.html";
+                  });
+                }
+              });
+
+              // this will mark user session as active
+              firebase.database().ref("sessions/" + user.uid).set({
+                email: user.email,
+                status: "Active"
+              });
+
+              // On page close or refresh session will now be seen as disconnected
+              window.addEventListener("beforeunload", () => {
+                firebase.database().ref("sessions/" + user.uid + "/status").set("Disconnected");
+              });
+
+              // Logout
               const logoutBtn = document.getElementById("logout");
               if (logoutBtn) {
                 logoutBtn.addEventListener("click", () => {
@@ -43,21 +94,6 @@
         });
     });
   </script>
-
-  <div class="container">
-    <h1>Smart Temperature Monitoring</h1>
-
-    <div id="temperature-display">
-      <h2>Current Temperature: <span id="temp-value">--</span>°C</h2>
-    </div>
-
-    <div id="virtual-led" class="led-indicator"></div>
-
-    <div id="status-indicator">
-      <p>LED Status: <span id="led-status">Unknown</span></p>
-      <p>Temperature Status: <span id="statusDisplay">--</span></p>
-    </div>
-  </div>
 
   <script src="app.js"></script>
 </body>

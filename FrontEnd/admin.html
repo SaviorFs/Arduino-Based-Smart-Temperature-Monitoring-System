@@ -8,21 +8,22 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+  <script src="firebase-config.js"></script>
 </head>
 <body>
   <div class="container">
     <h1>Admin Panel</h1>
 
     <div class="action-buttons" style="margin-bottom: 20px;">
+      <button onclick="window.location.href='index.html'">Back to Dashboard</button>
       <button id="logout">Logout</button>
-      <button onclick="downloadTemperatureCSV()">Download Temp Report</button>
     </div>
 
     <div class="admin-table">
       <table class="admin-table" cellpadding="10" cellspacing="0">
         <thead>
           <tr>
-            <th>User</th>
+            <th>User Email</th>
             <th>Status</th>
             <th>Terminate?</th>
             <th>Download</th>
@@ -35,7 +36,6 @@
     </div>
   </div>
 
-  <script src="firebase-config.js"></script>
   <script>
     firebase.auth().onAuthStateChanged(async user => {
       if (!user) {
@@ -44,9 +44,7 @@
       }
 
       const roleSnap = await firebase.database().ref("roles/" + user.uid + "/role").once("value");
-      const role = roleSnap.val();
-
-      if (role !== "admin") {
+      if (roleSnap.val() !== "admin") {
         alert("Access denied. Admins only.");
         return window.location.href = "login.html";
       }
@@ -63,14 +61,14 @@
             const row = document.createElement("tr");
             row.innerHTML = `
               <td>${session.email}</td>
-              <td>${session.status}</td>
-              <td><button onclick="terminateSession('${uid}')">Yes</button></td>
-              <td><button onclick="downloadTemperatureCSV()">Download</button></td>
+              <td>${session.status || "Unknown"}</td>
+              <td><button onclick="terminateSession('${uid}', '${session.email}')">Yes</button></td>
+              <td><button onclick="downloadTemperatureCSV('${uid}', '${session.email}')">Download</button></td>
             `;
             tbody.appendChild(row);
           });
         } else {
-          tbody.innerHTML = "<tr><td colspan='4'>No active sessions</td></tr>";
+          tbody.innerHTML = "<tr><td colspan='4'>No session data available</td></tr>";
         }
       });
     });
@@ -92,18 +90,24 @@
         });
     });
 
-    function terminateSession(uid) {
-      firebase.database().ref("sessions/" + uid).remove()
-        .then(() => alert("Session terminated"))
-        .catch(err => alert("Failed: " + err.message));
+    function terminateSession(uid, email) {
+      firebase.database().ref("control/kick/" + uid).set({
+        kickedBy: firebase.auth().currentUser.email,
+        timestamp: Date.now(),
+        message: "You have been removed by the admin."
+      }).then(() => {
+        alert(`Kick signal sent to ${email}`);
+      }).catch(err => {
+        alert("Kick failed: " + err.message);
+      });
     }
 
-    function downloadTemperatureCSV() {
+    function downloadTemperatureCSV(uid, email) {
       const db = firebase.database();
-      db.ref("temperatureLogs").once("value", snapshot => {
+      db.ref("temperatureLogs").orderByChild("uid").equalTo(uid).once("value", snapshot => {
         const logs = snapshot.val();
         if (!logs) {
-          alert("No data found.");
+          alert("No temperature data found for this user.");
           return;
         }
 
@@ -116,7 +120,7 @@
         const blob = new Blob([csv], { type: "text/csv" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = `temperature_log_${Date.now()}.csv`;
+        link.download = `temperature_log_${email}_${Date.now()}.csv`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

@@ -1,16 +1,48 @@
 let coldThreshold = 25.8;
 let hotThreshold = 26.3;
 
-// this connects to local WebSocket server
-const socket = new WebSocket("ws://localhost:8888");
+let currentUser = null;
+let socket = new WebSocket("ws://localhost:8888");
+
+firebase.auth().onAuthStateChanged((user) => {
+  if (user) {
+    currentUser = user;
+
+    // this will mark session active in Firebase
+    firebase.database().ref("sessions/" + user.uid).set({
+      email: user.email || "unknown@example.com",
+      status: "Active"
+    });
+
+    // this listens for disconnect to clean up session
+    window.addEventListener("beforeunload", () => {
+      firebase.database().ref("sessions/" + user.uid + "/status").set("Disconnected");
+    });
+  }
+});
 
 socket.onopen = () => {
   console.log("Connected to WebSocket");
+
+  // If user is known we send id
+  if (currentUser) {
+    socket.send(JSON.stringify({
+      uid: currentUser.uid,
+      email: currentUser.email
+    }));
+  }
 };
 
 socket.onmessage = (event) => {
   try {
     const data = JSON.parse(event.data);
+
+    // this the kick handler (admin feature)
+    if (data.type === "kick") {
+      alert(data.message || "You have been kicked by an admin.");
+      window.location.href = "login.html";
+      return;
+    }
 
     if (data.temperature !== undefined) {
       updateUI(data.temperature);
@@ -54,13 +86,23 @@ function sendThresholds() {
   if (!isNaN(hot)) hotThreshold = hot;
 
   if (socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify({ coldThreshold, hotThreshold }));
-    console.log("Thresholds sent:", { coldThreshold, hotThreshold });
+    const payload = {
+      coldThreshold,
+      hotThreshold
+    };
+
+    if (currentUser) {
+      payload.uid = currentUser.uid;
+      payload.email = currentUser.email;
+    }
+
+    socket.send(JSON.stringify(payload));
+    console.log("Thresholds sent:", payload);
   } else {
     console.warn("Cannot send thresholds. WebSocket not open.");
   }
 
-  // this will also update Firebase
+  // Update Firebase
   if (typeof firebase !== 'undefined' && firebase.database) {
     const db = firebase.database();
     db.ref().update({ coldThreshold, hotThreshold });
@@ -89,12 +131,12 @@ function updateUI(temp) {
   if (statusEl) statusEl.textContent = status;
 }
 
-// this is a Firebase LED status listener and initial threshold fetch
+// Firebase LED status and thresholds
 const ledStatusEl = document.getElementById("led-status");
 if (typeof firebase !== 'undefined' && firebase.database) {
   const db = firebase.database();
 
-  // realtime LED status 
+  // Realtime LED status
   if (ledStatusEl) {
     db.ref("ledStatus").on("value", (snapshot) => {
       if (snapshot.exists()) {
@@ -103,7 +145,7 @@ if (typeof firebase !== 'undefined' && firebase.database) {
     });
   }
 
-  // this will keep the threshold values once loaded in
+  // Load thresholds once on load
   db.ref().once("value").then((snapshot) => {
     const data = snapshot.val();
     if (data) {
@@ -133,5 +175,4 @@ if (logoutBtn) {
   });
 }
 
-// this attaches a click listener to send button
 document.getElementById("set-threshold")?.addEventListener("click", sendThresholds);

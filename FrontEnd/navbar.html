@@ -1,56 +1,94 @@
-<nav class="navbar">
-    <div class="nav-left">
-      <a href="index.html">Current Temperature</a>
-      <a href="threshold.html">Threshold Monitor</a>
-    </div>
-  
-    <div class="nav-right">
-      <span id="user-email">Logged in as: (loading...)</span>
-      <button id="logout">Logout</button>
-    </div>
-  </nav>
-  
-  <style>
-    .navbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background-color: #333;
-      padding: 10px 20px;
-      color: white;
-      font-family: Arial, sans-serif;
-    }
-  
-    .navbar a {
-      color: white;
-      text-decoration: none;
-      margin-right: 15px;
-    }
-  
-    .navbar a:hover {
-      text-decoration: underline;
-    }
-  
-    .nav-left, .nav-right {
-      display: flex;
-      align-items: center;
-    }
-  
-    #user-email {
-      margin-right: 10px;
-    }
-  
-    #logout {
-      background-color: #dc3545;
-      color: white;
-      border: none;
-      padding: 6px 12px;
-      cursor: pointer;
-      border-radius: 3px;
-    }
-  
-    #logout:hover {
-      background-color: #c82333;
-    }
-  </style>
-  
+<div class="navbar">
+  <div class="nav-left">
+    <a class="nav-button" href="index.html">Current Temperature</a>
+    <a class="nav-button" href="threshold.html">Threshold Monitor</a>
+    <a class="nav-button" href="chart.html">Chart</a>
+    <span id="admin-link-container"></span>
+  </div>
+
+  <div class="nav-right">
+    <span id="user-email">Logged in as: (loading...)</span>
+    <button id="logout" class="logout-button">Logout</button>
+  </div>
+</div>
+
+<style>
+  .navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .nav-button {
+    background-color: #007bff;
+    color: white;
+    padding: 8px 14px;
+    border-radius: 5px;
+    text-decoration: none;
+    margin-right: 10px;
+    font-weight: bold;
+  }
+
+  .nav-button:hover {
+    background-color: #0056b3;
+  }
+
+  .nav-left, .nav-right {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  #user-email {
+    margin-right: 15px;
+    font-weight: bold;
+  }
+
+  .logout-button {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    cursor: pointer;
+    border-radius: 5px;
+    font-weight: bold;
+  }
+
+  .logout-button:hover {
+    background-color: #b02a37;
+  }
+</style>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    firebase.auth().onAuthStateChanged(user => {
+      if (user) {
+        const emailEl = document.getElementById("user-email");
+        if (emailEl) emailEl.textContent = "Logged in as: " + user.email;
+
+        const logoutBtn = document.getElementById("logout");
+        if (logoutBtn) {
+          logoutBtn.addEventListener("click", () => {
+            firebase.auth().signOut().then(() => {
+              window.location.href = "login.html";
+            }).catch(err => {
+              alert("Logout failed: " + err.message);
+            });
+          });
+        }
+
+        firebase.database().ref("roles/" + user.uid + "/role").once("value").then(snapshot => {
+          if (snapshot.val() === "admin") {
+            const adminLink = document.createElement("a");
+            adminLink.href = "admin.html";
+            adminLink.className = "nav-button";
+            adminLink.textContent = "Admin Panel";
+            document.getElementById("admin-link-container")?.appendChild(adminLink);
+          }
+        });
+      }
+    });
+  });
+</script>
