@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Admin Panel - Smart Temp Monitor</title>
   <link rel="stylesheet" href="styles.css">
+
+  <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
@@ -43,7 +45,7 @@
         return window.location.href = "login.html";
       }
 
-      const roleSnap = await firebase.database().ref("roles/" + user.uid + "/role").once("value");
+      const roleSnap = await firebase.database().ref(`users/${user.uid}/role`).once("value");
       if (roleSnap.val() !== "admin") {
         alert("Access denied. Admins only.");
         return window.location.href = "login.html";
@@ -52,23 +54,35 @@
       const tbody = document.getElementById("session-body");
       const db = firebase.database();
 
-      db.ref("sessions").on("value", snapshot => {
-        const data = snapshot.val();
+      db.ref("users").once("value").then(snapshot => {
+        const users = snapshot.val();
         tbody.innerHTML = "";
 
-        if (data) {
-          Object.entries(data).forEach(([uid, session]) => {
+        if (users) {
+          Object.entries(users).forEach(([uid, userData]) => {
+            const sessions = userData.sessions;
+            const email = userData.email || "unknown@example.com";
+
+            // this is a safe session status check
+            let status = "Disconnected";
+            if (sessions && typeof sessions === "object") {
+              const sessionList = Object.values(sessions);
+              if (sessionList.some(s => s && s.active)) {
+                status = "Active";
+              }
+            }
+
             const row = document.createElement("tr");
             row.innerHTML = `
-              <td>${session.email}</td>
-              <td>${session.status || "Unknown"}</td>
-              <td><button onclick="terminateSession('${uid}', '${session.email}')">Yes</button></td>
-              <td><button onclick="downloadTemperatureCSV('${uid}', '${session.email}')">Download</button></td>
+              <td>${email}</td>
+              <td>${status}</td>
+              <td><button onclick="terminateSession('${uid}', '${email}')">Yes</button></td>
+              <td><button onclick="downloadTemperatureCSV('${uid}', '${email}')">Download</button></td>
             `;
             tbody.appendChild(row);
           });
         } else {
-          tbody.innerHTML = "<tr><td colspan='4'>No session data available</td></tr>";
+          tbody.innerHTML = "<tr><td colspan='4'>No user data available</td></tr>";
         }
       });
     });
@@ -76,7 +90,7 @@
     document.getElementById("logout").addEventListener("click", () => {
       const user = firebase.auth().currentUser;
       if (user) {
-        firebase.database().ref("activityLogs/" + user.uid).push({
+        firebase.database().ref(`users/${user.uid}/activityLogs`).push({
           event: "logout",
           timestamp: Date.now(),
           email: user.email
@@ -104,17 +118,17 @@
 
     function downloadTemperatureCSV(uid, email) {
       const db = firebase.database();
-      db.ref("temperatureLogs").orderByChild("uid").equalTo(uid).once("value", snapshot => {
+      db.ref(`users/${uid}/temperatureLogs`).once("value", snapshot => {
         const logs = snapshot.val();
         if (!logs) {
           alert("No temperature data found for this user.");
           return;
         }
 
-        let csv = "Timestamp,Temperature (°C)\n";
+        let csv = "Timestamp,Temperature (°C),LED Status\n";
         Object.values(logs).forEach(entry => {
           const time = new Date(entry.timestamp).toLocaleString();
-          csv += `${time},${entry.temperature}\n`;
+          csv += `${time},${entry.temperature},${entry.ledStatus || ""}\n`;
         });
 
         const blob = new Blob([csv], { type: "text/csv" });

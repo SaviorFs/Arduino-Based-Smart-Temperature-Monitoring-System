@@ -25,6 +25,7 @@ float hotThreshold = 26.3;
 unsigned long lastReconnectAttempt = 0;
 const unsigned long reconnectInterval = 5000;
 String lastLEDStatus = "";
+String dynamicUID = "";  // this is the UID received from frontend
 
 void setup() {
   Serial.begin(9600);
@@ -40,7 +41,7 @@ void setup() {
     Serial.print(".");
     delay(1000);
   }
-  Serial.println("WiFi Connected!");
+  Serial.println("\nWiFi Connected!");
 
   connectToWebSocket();
 }
@@ -58,6 +59,12 @@ void loop() {
     return;
   }
 
+  if (dynamicUID == "") {
+    Serial.println("Waiting for UID from frontend...");
+    delay(2000);
+    return;
+  }
+
   float temp = dht.readTemperature();
   if (isnan(temp)) {
     Serial.println("Failed to read temperature");
@@ -69,8 +76,8 @@ void loop() {
 
   String status = updateLEDs(temp);
 
-  // this will send only what's needed
-  StaticJsonDocument<100> doc;
+  StaticJsonDocument<150> doc;
+  doc["uid"] = dynamicUID;
   doc["temperature"] = temp;
   doc["ledStatus"] = status;
 
@@ -113,7 +120,7 @@ String updateLEDs(float temp) {
 
 void connectToWebSocket() {
   Serial.println("Connecting to WebSocket...");
-  client.begin("10.0.0.102", 8888, "/"); // this is localhost for now
+  client.begin("10.0.0.102", 8888, "/");
   client.onEvent(webSocketEvent);
   client.enableHeartbeat(5000, 1000, 3);
 }
@@ -125,16 +132,58 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
   } else if (type == WStype_DISCONNECTED) {
     Serial.println("WebSocket Disconnected");
     isConnected = false;
+    dynamicUID = ""; // this clears UID on disconnect
   } else if (type == WStype_TEXT) {
+    Serial.print("[WS Payload] ");
+    Serial.println((char*)payload);  // debug incoming message
+
     StaticJsonDocument<200> doc;
     DeserializationError error = deserializeJson(doc, payload);
-    if (!error) {
-      if (doc.containsKey("coldThreshold")) coldThreshold = doc["coldThreshold"];
-      if (doc.containsKey("hotThreshold")) hotThreshold = doc["hotThreshold"];
+    if (error) {
+      Serial.print("JSON Parse Error: ");
+      Serial.println(error.c_str());
+      return;
+    }
 
-      float temp = dht.readTemperature();
-      if (!isnan(temp)) {
-        updateLEDs(temp);
+    if (doc.containsKey("type") && doc["type"] == "register-uid" && doc.containsKey("uid")) {
+      dynamicUID = doc["uid"].as<String>();
+      Serial.print("Received UID from frontend: ");
+      Serial.println(dynamicUID);
+    }
+
+    bool thresholdUpdated = false;
+
+    if (doc.containsKey("coldThreshold")) {
+      coldThreshold = doc["coldThreshold"];
+      Serial.print("⬇️  Updated Cold Threshold: ");
+      Serial.println(coldThreshold);
+      thresholdUpdated = true;
+    }
+
+    if (doc.containsKey("hotThreshold")) {
+      hotThreshold = doc["hotThreshold"];
+      Serial.print("⬆️  Updated Hot Threshold: ");
+      Serial.println(hotThreshold);
+      thresholdUpdated = true;
+    }
+
+    if (thresholdUpdated) {
+      float currentTemp = dht.readTemperature();
+      if (!isnan(currentTemp)) {
+        Serial.println("Re-evaluating LED after threshold update...");
+        lastLEDStatus = "";  // force refresh
+        String status = updateLEDs(currentTemp);
+
+        // this sends temp and LED status back to dashboard
+        StaticJsonDocument<150> response;
+        response["uid"] = dynamicUID;
+        response["temperature"] = currentTemp;
+        response["ledStatus"] = status;
+
+        String msg;
+        serializeJson(response, msg);
+        client.sendTXT(msg);
+        Serial.println("Sent LED update after threshold change: " + msg);
       }
     }
   }

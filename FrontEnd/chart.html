@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Temperature Chart</title>
+  <title data-i18n="chart_title">Temperature Chart</title>
   <link rel="stylesheet" href="styles.css">
 
+  <!-- Chart.js and Firebase SDKs -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.0"></script>
@@ -16,131 +17,153 @@
   <script src="firebase-config.js"></script>
 </head>
 <body>
+<div class="page-container">
+  <div id="navbar-container"></div>
 
-  
-  <div class="page-container">
-    
-    <div id="navbar-container"></div>
-    <script>
-      document.addEventListener("DOMContentLoaded", () => {
-        fetch("navbar.html")
-          .then(res => res.text())
-          .then(html => {
-            document.getElementById("navbar-container").innerHTML = html;
+  <div class="container">
+    <h1 data-i18n="chart_title">Live Temperature Chart</h1>
+    <canvas id="tempChart" width="600" height="300"></canvas>
 
-            firebase.auth().onAuthStateChanged(user => {
-              if (!user) {
-                alert("Access denied. Please log in.");
-                return window.location.href = "login.html";
-              }
-
-              const emailEl = document.getElementById("user-email");
-              if (emailEl) emailEl.textContent = "Logged in as: " + user.email;
-
-              // admin panel link
-              firebase.database().ref("roles/" + user.uid + "/role").once("value").then(snapshot => {
-                if (snapshot.val() === "admin") {
-                  const adminLink = document.createElement("a");
-                  adminLink.href = "admin.html";
-                  adminLink.textContent = "Admin Panel";
-                  document.getElementById("admin-link-container")?.appendChild(adminLink);
-                }
-              });
-
-              const logoutBtn = document.getElementById("logout");
-              if (logoutBtn) {
-                logoutBtn.addEventListener("click", () => {
-                  firebase.auth().signOut().then(() => {
-                    window.location.href = "login.html";
-                  }).catch(err => {
-                    alert("Logout failed: " + err.message);
-                  });
-                });
-              }
-            });
-          });
-      });
-    </script>
-
-    <!-- chart part lol -->
-    <div class="container">
-      <h1>Live Temperature Chart</h1>
-      <canvas id="tempChart" width="600" height="300"></canvas>
-
-      <div class="action-buttons">
-        <button onclick="window.location.href='index.html'">Back to Dashboard</button>
-      </div>
+    <div class="action-buttons">
+      <button onclick="window.location.href='index.html'" data-i18n="back_dashboard">Back to Dashboard</button>
     </div>
   </div>
+</div>
 
-  <script>
-    firebase.auth().onAuthStateChanged(user => {
-      if (!user) {
-        alert("Access Denied. Please log in.");
-        window.location.href = "login.html";
-        return;
-      }
+<script>
+  const savedLang = localStorage.getItem("lang") || "en";
 
-      const db = firebase.database();
-      const chartRef = db.ref("temperatureLogs");
+  function loadLanguage(langCode) {
+    fetch(`lang/${langCode}.json`)
+      .then(res => res.json())
+      .then(strings => {
+        document.querySelectorAll("[data-i18n]").forEach(el => {
+          const key = el.getAttribute("data-i18n");
+          if (strings[key]) el.textContent = strings[key];
+        });
+      });
+  }
 
-      const ctx = document.getElementById("tempChart").getContext("2d");
-      const tempChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: [],
-          datasets: [{
-            label: "Temperature (°C)",
-            data: [],
-            backgroundColor: 'rgba(0,123,255,0.2)',
-            borderColor: 'rgba(0,123,255,1)',
-            borderWidth: 2,
-            fill: true,
-            tension: 0.3
-          }]
-        },
-        options: {
-          responsive: true,
-          animation: false,
-          scales: {
-            x: {
-              type: 'time',
-              time: {
-                tooltipFormat: 'HH:mm:ss',
-                displayFormats: {
-                  second: 'HH:mm:ss',
-                  minute: 'HH:mm',
-                  hour: 'HH:mm'
-                }
-              },
-              title: {
-                display: true,
-                text: 'Time'
+  document.addEventListener("DOMContentLoaded", () => {
+    fetch("navbar.html")
+      .then(res => res.text())
+      .then(html => {
+        document.getElementById("navbar-container").innerHTML = html;
+        loadLanguage(savedLang); // this will re-translate after navbar injected
+
+        firebase.auth().onAuthStateChanged(user => {
+          if (!user) {
+            alert("Access denied. Please log in.");
+            return window.location.href = "login.html";
+          }
+
+          const emailEl = document.getElementById("user-email");
+          if (emailEl) {
+            const labelSpan = document.createElement("span");
+            labelSpan.setAttribute("data-i18n", "logged_in_as");
+            labelSpan.textContent = "Logged in as:";
+            emailEl.innerHTML = "";
+            emailEl.appendChild(labelSpan);
+            emailEl.append(` ${user.email}`);
+          }
+
+          firebase.database().ref(`users/${user.uid}/role`).once("value").then(snapshot => {
+            if (snapshot.val() === "admin") {
+              const adminLink = document.createElement("a");
+              adminLink.href = "admin.html";
+              adminLink.className = "nav-button";
+              adminLink.setAttribute("data-i18n", "admin_panel");
+              adminLink.textContent = "Admin Panel";
+              document.getElementById("admin-link-container")?.appendChild(adminLink);
+              loadLanguage(savedLang); // we reapply i18n to new content
+            }
+          });
+
+          const logoutBtn = document.getElementById("logout");
+          if (logoutBtn) {
+            logoutBtn.addEventListener("click", () => {
+              firebase.auth().signOut().then(() => {
+                window.location.href = "login.html";
+              }).catch(err => {
+                alert("Logout failed: " + err.message);
+              });
+            });
+          }
+        });
+      });
+
+    loadLanguage(savedLang); // static content
+  });
+
+  // this is the chart logic
+  firebase.auth().onAuthStateChanged(user => {
+    if (!user) {
+      alert("Access Denied. Please log in.");
+      window.location.href = "login.html";
+      return;
+    }
+
+    const db = firebase.database();
+    const chartRef = db.ref(`users/${user.uid}/temperatureLogs`).limitToLast(25);
+
+    const ctx = document.getElementById("tempChart").getContext("2d");
+    const tempChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: "Temperature (°C)",
+          data: [],
+          backgroundColor: 'rgba(0,123,255,0.2)',
+          borderColor: 'rgba(0,123,255,1)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        animation: false,
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              tooltipFormat: 'HH:mm:ss',
+              displayFormats: {
+                second: 'HH:mm:ss',
+                minute: 'HH:mm',
+                hour: 'HH:mm'
               }
             },
-            y: {
-              title: {
-                display: true,
-                text: 'Temperature (°C)'
-              },
-              ticks: {
-                precision: 1
-              }
+            title: {
+              display: true,
+              text: 'Time'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'Temperature (°C)'
+            },
+            ticks: {
+              precision: 1
             }
           }
         }
-      });
-
-      chartRef.limitToLast(25).on("child_added", snapshot => {
-        const entry = snapshot.val();
-        if (entry && entry.timestamp && entry.temperature !== undefined) {
-          const time = new Date(entry.timestamp);
-          tempChart.data.labels.push(time);
-          tempChart.data.datasets[0].data.push(entry.temperature);
-          tempChart.update();
-        }
-      });
+      }
     });
-  </script>
+
+    chartRef.on("child_added", snapshot => {
+      const entry = snapshot.val();
+      if (entry && entry.timestamp && entry.temperature !== undefined) {
+        const time = new Date(entry.timestamp);
+        tempChart.data.labels.push(time);
+        tempChart.data.datasets[0].data.push(entry.temperature);
+        tempChart.update();
+      }
+    });
+  });
+</script>
+
 </body>
 </html>

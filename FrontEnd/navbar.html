@@ -1,14 +1,14 @@
 <div class="navbar">
   <div class="nav-left">
-    <a class="nav-button" href="index.html">Current Temperature</a>
-    <a class="nav-button" href="threshold.html">Threshold Monitor</a>
-    <a class="nav-button" href="chart.html">Chart</a>
-    <span id="admin-link-container"></span>
+    <a class="nav-button" href="index.html" data-i18n="nav_current_temp">Current Temperature</a>
+    <a class="nav-button" href="threshold.html" data-i18n="nav_threshold">Threshold Monitor</a>
+    <a class="nav-button" href="chart.html" data-i18n="nav_chart">Chart</a>
+    <span id="admin-link-container" style="min-width: 120px;"></span>
   </div>
 
   <div class="nav-right">
-    <span id="user-email">Logged in as: (loading...)</span>
-    <button id="logout" class="logout-button">Logout</button>
+    <span id="user-email"><span data-i18n="logged_in_as">Logged in as:</span> (loading...)</span>
+    <button id="logout" class="logout-button" data-i18n="logout">Logout</button>
   </div>
 </div>
 
@@ -62,11 +62,32 @@
 </style>
 
 <script>
+  function loadLanguage(langCode) {
+    fetch(`lang/${langCode}.json`)
+      .then(res => res.json())
+      .then(strings => {
+        document.querySelectorAll("[data-i18n]").forEach(el => {
+          const key = el.getAttribute("data-i18n");
+          if (strings[key]) el.textContent = strings[key];
+        });
+      });
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
+    const savedLang = localStorage.getItem("lang") || "en";
+    loadLanguage(savedLang);
+
     firebase.auth().onAuthStateChanged(user => {
       if (user) {
         const emailEl = document.getElementById("user-email");
-        if (emailEl) emailEl.textContent = "Logged in as: " + user.email;
+        if (emailEl) {
+          const labelSpan = document.createElement("span");
+          labelSpan.setAttribute("data-i18n", "logged_in_as");
+          labelSpan.textContent = "Logged in as:";
+          emailEl.innerHTML = "";
+          emailEl.appendChild(labelSpan);
+          emailEl.append(` ${user.email}`);
+        }
 
         const logoutBtn = document.getElementById("logout");
         if (logoutBtn) {
@@ -79,13 +100,15 @@
           });
         }
 
-        firebase.database().ref("roles/" + user.uid + "/role").once("value").then(snapshot => {
+        firebase.database().ref(`users/${user.uid}/role`).once("value").then(snapshot => {
           if (snapshot.val() === "admin") {
             const adminLink = document.createElement("a");
             adminLink.href = "admin.html";
             adminLink.className = "nav-button";
+            adminLink.setAttribute("data-i18n", "admin_panel");
             adminLink.textContent = "Admin Panel";
             document.getElementById("admin-link-container")?.appendChild(adminLink);
+            loadLanguage(savedLang); // this translates admin panel link after insertion
           }
         });
       }

@@ -3,24 +3,65 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Register - Smart Temp Monitor</title>
+  <title data-i18n="register_title">Register - Smart Temp Monitor</title>
   <link rel="stylesheet" href="styles.css">
 
+  <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
 <body>
   <div class="container">
-    <h2>Register</h2>
+    <!-- language selector only on login and register -->
+    <div class="nav-right" style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+      <select id="lang-selector">
+        <option value="en">English</option>
+        <option value="it">Italiano</option>
+      </select>
+    </div>
+
+    <h2 data-i18n="register_heading">Register</h2>
     <form id="register-form">
       <input type="email" id="reg-email" placeholder="Email" required />
       <input type="password" id="reg-password" placeholder="Password" required />
-      <button type="submit" id="register-btn">Register</button>
+      <button type="submit" id="register-btn" data-i18n="register_button">Register</button>
     </form>
-    <p>Already have an account? <a href="login.html">Login</a></p>
+    <p><span data-i18n="already_account">Already have an account?</span> 
+      <a href="login.html" data-i18n="login_link">Login</a>
+    </p>
   </div>
 
+  <!-- Firebase Setup -->
   <script src="firebase-config.js"></script>
   <script src="auth.js"></script>
+
+  <!-- language handling logic -->
+  <script>
+    function loadLanguage(langCode) {
+      fetch(`lang/${langCode}.json`)
+        .then(res => res.json())
+        .then(strings => {
+          document.querySelectorAll("[data-i18n]").forEach(el => {
+            const key = el.getAttribute("data-i18n");
+            if (strings[key]) el.textContent = strings[key];
+          });
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const selector = document.getElementById("lang-selector");
+      const savedLang = localStorage.getItem("lang") || "en";
+
+      selector.value = savedLang;
+      loadLanguage(savedLang);
+
+      selector.addEventListener("change", () => {
+        const selectedLang = selector.value;
+        localStorage.setItem("lang", selectedLang);
+        loadLanguage(selectedLang);
+      });
+    });
+  </script>
 </body>
 </html>

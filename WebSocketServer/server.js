@@ -17,7 +17,7 @@ const userSockets = new Map(); // uid -> ws
 
 wss.on('connection', (ws) => {
   console.log('Client connected');
-  let assignedUid = null; // track the UID for disconnect cleanup
+  let assignedUid = null;
 
   ws.on('message', (msg) => {
     const message = msg.toString();
@@ -26,39 +26,65 @@ wss.on('connection', (ws) => {
     try {
       const data = JSON.parse(message);
 
-      // this handles temperature log
-      if (data.temperature !== undefined) {
-        const timestamp = Date.now();
-        db.ref("temperatureLogs").push({
-          temperature: data.temperature,
-          timestamp: timestamp,
-          uid: data.uid || "unknown"
-        });
-        console.log(`Logged: ${data.temperature}°C @ ${new Date(timestamp).toLocaleString()}`);
-      }
-
-      // this handles LED status update
-      if (data.ledStatus !== undefined) {
-        db.ref("ledStatus").set(data.ledStatus);
-        console.log(`LED Status: ${data.ledStatus}`);
-      }
-
-      // this registers UID with socket
-      if (data.uid) {
+      // this handles register-uid from frontend
+      if (data.type === "register-uid" && data.uid) {
         assignedUid = data.uid;
 
-        // Update user socket map
-        if (!userSockets.has(data.uid)) {
-          userSockets.set(data.uid, ws);
-          console.log(`Mapped UID ${data.uid} to socket`);
+        if (!userSockets.has(assignedUid)) {
+          userSockets.set(assignedUid, ws);
+          console.log(`Mapped UID ${assignedUid} to socket via register-uid`);
         }
 
-        // this marks session as active
-        db.ref("sessions/" + data.uid).set({
-          email: data.email || "unknown@example.com",
-          status: "Active"
+        // this forwards register-uid to any other client in this case the arduino
+        wss.clients.forEach((client) => {
+          if (client !== ws && client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify(data));
+            console.log(`Forwarded register-uid to other clients for UID: ${data.uid}`);
+          }
         });
+
+        return;
       }
+
+      const uid = data.uid;
+      if (!uid) return;
+
+      const timestamp = Date.now();
+
+      // this is for temperature logging
+      if (data.temperature !== undefined) {
+        db.ref(`users/${uid}/temperatureLogs`).push({
+          temperature: data.temperature,
+          timestamp: timestamp,
+          ledStatus: data.ledStatus || "UNKNOWN"
+        });
+
+        console.log(`Logged: ${data.temperature}°C from UID ${uid} @ ${new Date(timestamp).toLocaleString()}`);
+      }
+
+      // this is LED Status Update
+      if (data.ledStatus !== undefined) {
+        db.ref(`users/${uid}/ledStatus`).set({
+          value: data.ledStatus,
+          timestamp: timestamp
+        });
+        console.log(`LED Status (${uid}): ${data.ledStatus}`);
+      }
+
+      // this registers UID with WebSocket and mark session active
+      if (!userSockets.has(uid)) {
+        userSockets.set(uid, ws);
+        console.log(`Mapped UID ${uid} to socket`);
+      }
+      assignedUid = uid;
+
+      const sessionId = `session_${timestamp}`;
+      db.ref(`users/${uid}/sessions/${sessionId}`).set({
+        email: data.email || "unknown@example.com",
+        active: true,
+        sessionStart: new Date(timestamp).toISOString(),
+        lastActivity: new Date(timestamp).toISOString()
+      });
 
     } catch (err) {
       console.error("Invalid JSON:", message);
@@ -75,29 +101,34 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     console.log('Client disconnected');
 
-    // this removes from userSockets and update status in Firebase
     for (const [uid, sock] of userSockets.entries()) {
       if (sock === ws) {
         userSockets.delete(uid);
         console.log(`Unmapped UID ${uid}`);
 
-        // this marks session as disconnected
-        db.ref("sessions/" + uid + "/status").set("Disconnected");
+        db.ref(`users/${uid}/sessions`).orderByChild("active").equalTo(true).once("value", snapshot => {
+          snapshot.forEach(child => {
+            db.ref(`users/${uid}/sessions/${child.key}/active`).set(false);
+          });
+        });
+
         break;
       }
     }
 
-    // this is just in case we want assignedUid tracked
     if (assignedUid && !userSockets.has(assignedUid)) {
-      db.ref("sessions/" + assignedUid + "/status").set("Disconnected");
+      db.ref(`users/${assignedUid}/sessions`).orderByChild("active").equalTo(true).once("value", snapshot => {
+        snapshot.forEach(child => {
+          db.ref(`users/${assignedUid}/sessions/${child.key}/active`).set(false);
+        });
+      });
     }
   });
 
-  // confirming connections
   ws.send(JSON.stringify({ message: "Connected to WebSocket server" }));
 });
 
-// this is the firebase kick command watcher
+// this is the admin's kick command
 db.ref("control/kick").on("child_added", (snapshot) => {
   const uid = snapshot.key;
   const command = snapshot.val();

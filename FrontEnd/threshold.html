@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Threshold Monitor - Smart Temp Monitor</title>
+  <title data-i18n="threshold_title">Threshold Monitor - Smart Temp Monitor</title>
   <link rel="stylesheet" href="styles.css">
 
   <!-- Firebase SDKs -->
@@ -13,24 +13,22 @@
   <script src="firebase-config.js"></script>
 </head>
 <body>
-  <!-- ✅ Full white box container -->
   <div class="page-container">
-    <!-- Navbar -->
-    <div id="navbar-placeholder"></div>
+    <div id="navbar-container"></div>
 
     <div class="container">
-      <h1>Threshold Monitor</h1>
+      <h1 data-i18n="threshold_title">Threshold Monitor</h1>
 
       <div class="threshold-inputs">
         <div>
-          <label for="cold">Cold Threshold (°C):</label>
+          <label for="cold" data-i18n="cold_label">Cold Threshold (°C):</label>
           <input type="number" id="cold" step="0.1" placeholder="Enter cold threshold">
         </div>
         <div>
-          <label for="hot">Hot Threshold (°C):</label>
+          <label for="hot" data-i18n="hot_label">Hot Threshold (°C):</label>
           <input type="number" id="hot" step="0.1" placeholder="Enter hot threshold">
         </div>
-        <button id="save-thresholds">Save Thresholds</button>
+        <button id="save-thresholds" data-i18n="save_button">Save Thresholds</button>
       </div>
     </div>
   </div>
@@ -39,11 +37,25 @@
     let socket;
     let currentUser = null;
 
+    function loadLanguage(langCode) {
+      fetch(`lang/${langCode}.json`)
+        .then(res => res.json())
+        .then(strings => {
+          document.querySelectorAll("[data-i18n]").forEach(el => {
+            const key = el.getAttribute("data-i18n");
+            if (strings[key]) el.textContent = strings[key];
+          });
+        });
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
+      const savedLang = localStorage.getItem("lang") || "en";
+
       fetch("navbar.html")
         .then(res => res.text())
         .then(html => {
-          document.getElementById("navbar-placeholder").innerHTML = html;
+          document.getElementById("navbar-container").innerHTML = html;
+          loadLanguage(savedLang);
 
           firebase.auth().onAuthStateChanged(user => {
             if (!user) {
@@ -54,14 +66,17 @@
             currentUser = user;
 
             const emailEl = document.getElementById("user-email");
-            if (emailEl) emailEl.textContent = "Logged in as: " + user.email;
+            if (emailEl) emailEl.innerHTML = `<span data-i18n="logged_in_as">Logged in as:</span> ${user.email}`;
 
-            firebase.database().ref("roles/" + user.uid + "/role").once("value").then(snapshot => {
+            firebase.database().ref(`users/${user.uid}/role`).once("value").then(snapshot => {
               if (snapshot.val() === "admin") {
                 const adminLink = document.createElement("a");
                 adminLink.href = "admin.html";
+                adminLink.className = "nav-button";
+                adminLink.setAttribute("data-i18n", "admin_panel");
                 adminLink.textContent = "Admin Panel";
                 document.getElementById("admin-link-container")?.appendChild(adminLink);
+                loadLanguage(savedLang);
               }
             });
 
@@ -76,22 +91,23 @@
               });
             }
 
-            firebase.database().ref("kicked/" + user.uid).on("value", (snap) => {
-              if (snap.exists()) {
-                alert("You have been removed by the admin.");
-                firebase.auth().signOut().then(() => {
-                  window.location.href = "login.html";
-                });
+            firebase.database().ref(`users/${user.uid}/thresholds`).once("value").then(snapshot => {
+              const data = snapshot.val();
+              if (data) {
+                if (data.cold !== undefined) document.getElementById("cold").value = data.cold;
+                if (data.hot !== undefined) document.getElementById("hot").value = data.hot;
               }
             });
 
-            firebase.database().ref("sessions/" + user.uid).set({
+            const sessionId = `session_${Date.now()}`;
+            firebase.database().ref(`users/${user.uid}/sessions/${sessionId}`).set({
               email: user.email,
-              status: "Active"
+              active: true,
+              sessionStart: new Date().toISOString()
             });
 
             window.addEventListener("beforeunload", () => {
-              firebase.database().ref("sessions/" + user.uid + "/status").set("Disconnected");
+              firebase.database().ref(`users/${user.uid}/sessions/${sessionId}/active`).set(false);
             });
           });
         });
@@ -109,18 +125,6 @@
       socket.onerror = (e) => console.warn("WebSocket error:", e);
       socket.onclose = () => console.warn("WebSocket disconnected");
 
-      firebase.database().ref().once("value").then(snapshot => {
-        const data = snapshot.val();
-        if (data) {
-          if (data.coldThreshold !== undefined) {
-            document.getElementById("cold").value = data.coldThreshold;
-          }
-          if (data.hotThreshold !== undefined) {
-            document.getElementById("hot").value = data.hotThreshold;
-          }
-        }
-      });
-
       document.getElementById("save-thresholds").addEventListener("click", saveThresholds);
     });
 
@@ -133,26 +137,29 @@
         return;
       }
 
-      firebase.database().ref().update({
-        coldThreshold: cold,
-        hotThreshold: hot
-      }).then(() => {
-        alert("Thresholds saved to Firebase.");
-      }).catch(err => {
-        alert("Firebase error: " + err.message);
-      });
+      if (!currentUser) {
+        alert("User not authenticated.");
+        return;
+      }
+
+      firebase.database().ref(`users/${currentUser.uid}/thresholds`).set({ cold, hot })
+        .then(() => alert("Thresholds saved."))
+        .catch(err => alert("Firebase error: " + err.message));
 
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({
           coldThreshold: cold,
           hotThreshold: hot,
-          uid: currentUser?.uid || "unknown"
+          uid: currentUser.uid,
+          email: currentUser.email
         }));
         console.log("Sent to Arduino:", { coldThreshold: cold, hotThreshold: hot });
       } else {
-        console.warn("WebSocket not open, couldn't send to Arduino.");
+        console.warn("WebSocket not open.");
       }
     }
   </script>
+
+  <script src="lang/i18n.js"></script>
 </body>
 </html>

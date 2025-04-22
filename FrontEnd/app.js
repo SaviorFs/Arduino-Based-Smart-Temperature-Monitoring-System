@@ -1,82 +1,139 @@
 let coldThreshold = 25.8;
 let hotThreshold = 26.3;
 
-let currentUser = null;
-let socket = new WebSocket("ws://localhost:8888");
+let socket = null;
+let resendInterval = null;
+
+function sendUIDToArduinoRepeatedly(uid) {
+  firebase.database().ref(`users/${uid}/thresholds`).once("value").then((snapshot) => {
+    const thresholds = snapshot.val();
+    if (!thresholds) return;
+
+    const payload = {
+      type: "register-uid",
+      uid: uid,
+      coldThreshold: thresholds.cold || 18,
+      hotThreshold: thresholds.hot || 28
+    };
+
+    resendInterval = setInterval(() => {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify(payload));
+        console.log("Re-sent register-uid + thresholds to Arduino:", payload);
+      }
+    }, 3000);
+  });
+}
 
 firebase.auth().onAuthStateChanged((user) => {
   if (user) {
-    currentUser = user;
+    localStorage.setItem("uid", user.uid);
+    socket = new WebSocket("ws://localhost:8888");
 
-    // this will mark session active in Firebase
-    firebase.database().ref("sessions/" + user.uid).set({
-      email: user.email || "unknown@example.com",
-      status: "Active"
+    socket.onopen = () => {
+      console.log("WebSocket connected.");
+      sendUIDToArduinoRepeatedly(user.uid);
+    };
+
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.temperature !== undefined) {
+          clearInterval(resendInterval);
+          console.log("Arduino responded. Stopped re-sending UID.");
+          updateUI(data.temperature);
+        }
+
+        if (data.coldThreshold !== undefined) {
+          coldThreshold = data.coldThreshold;
+          const coldInput = document.getElementById("coldInput");
+          if (coldInput) coldInput.value = coldThreshold;
+        }
+
+        if (data.hotThreshold !== undefined) {
+          hotThreshold = data.hotThreshold;
+          const hotInput = document.getElementById("hotInput");
+          if (hotInput) hotInput.value = hotThreshold;
+        }
+
+        if (data.ledStatus !== undefined) {
+          const ledStatus = document.getElementById("led-status");
+          if (ledStatus) ledStatus.textContent = data.ledStatus;
+        }
+
+        if (data.type === "kick") {
+          alert(data.message || "You have been kicked by an admin.");
+          window.location.href = "login.html";
+        }
+
+      } catch (err) {
+        console.warn("Invalid WebSocket message:", event.data);
+      }
+    };
+
+    socket.onerror = (err) => {
+      console.error("WebSocket error:", err);
+    };
+
+    socket.onclose = () => {
+      console.warn("WebSocket disconnected.");
+      clearInterval(resendInterval);
+    };
+
+    // Attach logout
+    const logoutBtn = document.getElementById("logout");
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", () => {
+        localStorage.removeItem("uid");
+        firebase.auth().signOut().then(() => {
+          window.location.href = "login.html";
+        });
+      });
+    }
+
+    // Load thresholds once
+    firebase.database().ref(`users/${user.uid}/thresholds`).once("value").then((snapshot) => {
+      const thresholds = snapshot.val();
+      if (thresholds) {
+        if (thresholds.cold !== undefined) {
+          coldThreshold = thresholds.cold;
+          const coldInput = document.getElementById("coldInput");
+          if (coldInput) coldInput.value = coldThreshold;
+        }
+        if (thresholds.hot !== undefined) {
+          hotThreshold = thresholds.hot;
+          const hotInput = document.getElementById("hotInput");
+          if (hotInput) hotInput.value = hotThreshold;
+        }
+      }
     });
 
-    // this listens for disconnect to clean up session
+    // Listen for LED status
+    firebase.database().ref(`users/${user.uid}/ledStatus/value`).on("value", (snapshot) => {
+      const ledStatusEl = document.getElementById("led-status");
+      if (ledStatusEl && snapshot.exists()) {
+        ledStatusEl.textContent = snapshot.val();
+      }
+    });
+
+    // Threshold update handler
+    document.getElementById("set-threshold")?.addEventListener("click", sendThresholds);
+
+    // Track session
+    const sessionId = `session_${Date.now()}`;
+    firebase.database().ref(`users/${user.uid}/sessions/${sessionId}`).set({
+      email: user.email || "unknown@example.com",
+      active: true,
+      sessionStart: new Date().toISOString(),
+      lastActivity: new Date().toISOString()
+    });
+
     window.addEventListener("beforeunload", () => {
-      firebase.database().ref("sessions/" + user.uid + "/status").set("Disconnected");
+      firebase.database().ref(`users/${user.uid}/sessions/${sessionId}/active`).set(false);
     });
   }
 });
-
-socket.onopen = () => {
-  console.log("Connected to WebSocket");
-
-  // If user is known we send id
-  if (currentUser) {
-    socket.send(JSON.stringify({
-      uid: currentUser.uid,
-      email: currentUser.email
-    }));
-  }
-};
-
-socket.onmessage = (event) => {
-  try {
-    const data = JSON.parse(event.data);
-
-    // this the kick handler (admin feature)
-    if (data.type === "kick") {
-      alert(data.message || "You have been kicked by an admin.");
-      window.location.href = "login.html";
-      return;
-    }
-
-    if (data.temperature !== undefined) {
-      updateUI(data.temperature);
-    }
-
-    if (data.coldThreshold !== undefined) {
-      coldThreshold = data.coldThreshold;
-      const coldInput = document.getElementById("coldInput");
-      if (coldInput) coldInput.value = coldThreshold;
-    }
-
-    if (data.hotThreshold !== undefined) {
-      hotThreshold = data.hotThreshold;
-      const hotInput = document.getElementById("hotInput");
-      if (hotInput) hotInput.value = hotThreshold;
-    }
-
-    if (data.ledStatus !== undefined) {
-      const ledStatus = document.getElementById("led-status");
-      if (ledStatus) ledStatus.textContent = data.ledStatus;
-    }
-
-  } catch (err) {
-    console.warn("Invalid WebSocket message:", event.data);
-  }
-};
-
-socket.onerror = (err) => {
-  console.error("WebSocket error:", err);
-};
-
-socket.onclose = () => {
-  console.warn("WebSocket disconnected");
-};
 
 function sendThresholds() {
   const cold = parseFloat(document.getElementById("coldInput").value);
@@ -85,27 +142,24 @@ function sendThresholds() {
   if (!isNaN(cold)) coldThreshold = cold;
   if (!isNaN(hot)) hotThreshold = hot;
 
-  if (socket.readyState === WebSocket.OPEN) {
-    const payload = {
-      coldThreshold,
-      hotThreshold
-    };
+  const payload = {
+    coldThreshold,
+    hotThreshold
+  };
 
-    if (currentUser) {
-      payload.uid = currentUser.uid;
-      payload.email = currentUser.email;
+  const uid = localStorage.getItem("uid");
+  if (uid) {
+    payload.uid = uid;
+
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify(payload));
+      console.log("Thresholds sent:", payload);
     }
 
-    socket.send(JSON.stringify(payload));
-    console.log("Thresholds sent:", payload);
-  } else {
-    console.warn("Cannot send thresholds. WebSocket not open.");
-  }
-
-  // Update Firebase
-  if (typeof firebase !== 'undefined' && firebase.database) {
-    const db = firebase.database();
-    db.ref().update({ coldThreshold, hotThreshold });
+    firebase.database().ref(`users/${uid}/thresholds`).set({
+      cold: coldThreshold,
+      hot: hotThreshold
+    });
   }
 }
 
@@ -113,8 +167,8 @@ function updateUI(temp) {
   const tempDisplay = document.getElementById("temp-value");
   if (tempDisplay) tempDisplay.textContent = temp.toFixed(2);
 
-  let status = "Unknown";
   const virtualLED = document.getElementById("virtual-led");
+  let status = "Unknown";
 
   if (temp <= coldThreshold) {
     status = "Too Cold";
@@ -130,49 +184,3 @@ function updateUI(temp) {
   const statusEl = document.getElementById("statusDisplay");
   if (statusEl) statusEl.textContent = status;
 }
-
-// Firebase LED status and thresholds
-const ledStatusEl = document.getElementById("led-status");
-if (typeof firebase !== 'undefined' && firebase.database) {
-  const db = firebase.database();
-
-  // Realtime LED status
-  if (ledStatusEl) {
-    db.ref("ledStatus").on("value", (snapshot) => {
-      if (snapshot.exists()) {
-        ledStatusEl.textContent = snapshot.val();
-      }
-    });
-  }
-
-  // Load thresholds once on load
-  db.ref().once("value").then((snapshot) => {
-    const data = snapshot.val();
-    if (data) {
-      if (data.coldThreshold !== undefined) {
-        coldThreshold = data.coldThreshold;
-        const coldInput = document.getElementById("coldInput");
-        if (coldInput) coldInput.value = coldThreshold;
-      }
-      if (data.hotThreshold !== undefined) {
-        hotThreshold = data.hotThreshold;
-        const hotInput = document.getElementById("hotInput");
-        if (hotInput) hotInput.value = hotThreshold;
-      }
-    }
-  });
-}
-
-// Logout button
-const logoutBtn = document.getElementById("logout");
-if (logoutBtn) {
-  logoutBtn.addEventListener("click", () => {
-    firebase.auth().signOut().then(() => {
-      window.location.href = "login.html";
-    }).catch((error) => {
-      console.error("Logout Error:", error);
-    });
-  });
-}
-
-document.getElementById("set-threshold")?.addEventListener("click", sendThresholds);
