@@ -1,9 +1,11 @@
 <div class="navbar">
-  <div class="nav-left">
-    <a class="nav-button" href="index.html" data-i18n="nav_current_temp">Current Temperature</a>
-    <a class="nav-button" href="threshold.html" data-i18n="nav_threshold">Threshold Monitor</a>
-    <a class="nav-button" href="chart.html" data-i18n="nav_chart">Chart</a>
-    <span id="admin-link-container" style="min-width: 120px;"></span>
+  <div class="nav-left-wrapper">
+    <div class="nav-left">
+      <a class="nav-button" href="index.html" data-i18n="nav_current_temp">Current Temperature</a>
+      <a class="nav-button" href="threshold.html" data-i18n="nav_threshold">Threshold Monitor</a>
+      <a class="nav-button" href="chart.html" data-i18n="nav_chart">Chart</a>
+      <span id="admin-link-container" style="min-width: 120px;"></span>
+    </div>
   </div>
 
   <div class="nav-right">
@@ -21,13 +23,25 @@
     flex-wrap: wrap;
   }
 
+  .nav-left-wrapper {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+  }
+
+  .nav-left {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+
   .nav-button {
     background-color: #007bff;
     color: white;
     padding: 8px 14px;
     border-radius: 5px;
     text-decoration: none;
-    margin-right: 10px;
     font-weight: bold;
   }
 
@@ -35,14 +49,14 @@
     background-color: #0056b3;
   }
 
-  .nav-left, .nav-right {
+  .nav-right {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
+    gap: 10px;
   }
 
   #user-email {
-    margin-right: 15px;
     font-weight: bold;
   }
 
@@ -60,6 +74,8 @@
     background-color: #b02a37;
   }
 </style>
+
+
 
 <script>
   function loadLanguage(langCode) {
