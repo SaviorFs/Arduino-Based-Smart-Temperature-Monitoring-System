@@ -6,7 +6,6 @@
   <title data-i18n="chart_title">Temperature Chart</title>
   <link rel="stylesheet" href="styles.css">
 
-  <!-- Chart.js and Firebase SDKs -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.0"></script>
@@ -22,6 +21,11 @@
 
   <div class="container">
     <h1 data-i18n="chart_title">Live Temperature Chart</h1>
+    <label for="chartType">View:</label>
+    <select id="chartType">
+      <option value="live">Live</option>
+      <option value="daily">Daily</option>
+    </select>
     <canvas id="tempChart" width="600" height="300"></canvas>
 
     <div class="action-buttons">
@@ -49,14 +53,15 @@
       .then(res => res.text())
       .then(html => {
         document.getElementById("navbar-container").innerHTML = html;
-        loadLanguage(savedLang); // this will re-translate after navbar injected
 
+        // do Firebase user logic AFTERRRR navbar is loaded
         firebase.auth().onAuthStateChanged(user => {
           if (!user) {
             alert("Access denied. Please log in.");
             return window.location.href = "login.html";
           }
 
+          
           const emailEl = document.getElementById("user-email");
           if (emailEl) {
             const labelSpan = document.createElement("span");
@@ -66,18 +71,6 @@
             emailEl.appendChild(labelSpan);
             emailEl.append(` ${user.email}`);
           }
-
-          firebase.database().ref(`users/${user.uid}/role`).once("value").then(snapshot => {
-            if (snapshot.val() === "admin") {
-              const adminLink = document.createElement("a");
-              adminLink.href = "admin.html";
-              adminLink.className = "nav-button";
-              adminLink.setAttribute("data-i18n", "admin_panel");
-              adminLink.textContent = "Admin Panel";
-              document.getElementById("admin-link-container")?.appendChild(adminLink);
-              loadLanguage(savedLang); // we reapply i18n to new content
-            }
-          });
 
           const logoutBtn = document.getElementById("logout");
           if (logoutBtn) {
@@ -89,79 +82,143 @@
               });
             });
           }
+
+          firebase.database().ref(`users/${user.uid}/role`).once("value").then(snapshot => {
+            if (snapshot.val() === "admin") {
+              const adminLink = document.createElement("a");
+              adminLink.href = "admin.html";
+              adminLink.className = "nav-button";
+              adminLink.setAttribute("data-i18n", "admin_panel");
+              adminLink.textContent = "Admin Panel";
+              document.getElementById("admin-link-container")?.appendChild(adminLink);
+              loadLanguage(savedLang);
+            }
+          });
+
+          loadLanguage(savedLang); // retranslate after content changes
+
+          // ✅ Chart logic after user authenticated
+          const db = firebase.database();
+          const chartRef = db.ref(`users/${user.uid}/temperatureLogs`).limitToLast(1000);
+
+          chartRef.on("child_added", snapshot => {
+            const entry = snapshot.val();
+            if (entry && entry.timestamp && entry.temperature !== undefined) {
+              const time = new Date(entry.timestamp);
+              allData.push({ time, temperature: entry.temperature });
+              if (document.getElementById("chartType").value === "live") {
+                updateLiveChart();
+              } else {
+                updateDailyChart();
+              }
+            }
+          });
         });
       });
 
-    loadLanguage(savedLang); // static content
+    loadLanguage(savedLang); // fallback for static content
   });
 
-  // this is the chart logic
-  firebase.auth().onAuthStateChanged(user => {
-    if (!user) {
-      alert("Access Denied. Please log in.");
-      window.location.href = "login.html";
-      return;
-    }
+  let allData = [];
 
-    const db = firebase.database();
-    const chartRef = db.ref(`users/${user.uid}/temperatureLogs`).limitToLast(25);
-
-    const ctx = document.getElementById("tempChart").getContext("2d");
-    const tempChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: [],
-        datasets: [{
-          label: "Temperature (°C)",
-          data: [],
-          backgroundColor: 'rgba(0,123,255,0.2)',
-          borderColor: 'rgba(0,123,255,1)',
-          borderWidth: 2,
-          fill: true,
-          tension: 0.3
-        }]
-      },
-      options: {
-        responsive: true,
-        animation: false,
-        scales: {
-          x: {
-            type: 'time',
-            time: {
-              tooltipFormat: 'HH:mm:ss',
-              displayFormats: {
-                second: 'HH:mm:ss',
-                minute: 'HH:mm',
-                hour: 'HH:mm'
-              }
-            },
-            title: {
-              display: true,
-              text: 'Time'
+  const ctx = document.getElementById("tempChart").getContext("2d");
+  const tempChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: "Temperature (°C)",
+        data: [],
+        backgroundColor: 'rgba(0,123,255,0.2)',
+        borderColor: 'rgba(0,123,255,1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      animation: false,
+      scales: {
+        x: {
+          type: 'time',
+          time: {
+            tooltipFormat: 'HH:mm:ss',
+            displayFormats: {
+              second: 'HH:mm:ss',
+              minute: 'HH:mm',
+              hour: 'HH:mm'
             }
           },
-          y: {
-            title: {
-              display: true,
-              text: 'Temperature (°C)'
-            },
-            ticks: {
-              precision: 1
-            }
-          }
+          title: { display: true, text: 'Time' }
+        },
+        y: {
+          title: { display: true, text: 'Temperature (°C)' },
+          ticks: { precision: 1 }
         }
       }
+    }
+  });
+
+  function updateLiveChart() {
+    const latestData = allData.slice(-25);
+    tempChart.data.labels = latestData.map(e => e.time);
+    tempChart.data.datasets = [{
+      label: "Temperature (°C)",
+      data: latestData.map(e => e.temperature),
+      backgroundColor: 'rgba(0,123,255,0.2)',
+      borderColor: 'rgba(0,123,255,1)',
+      borderWidth: 2,
+      fill: true,
+      tension: 0.3
+    }];
+    tempChart.options.scales.x.type = 'time';
+    tempChart.options.scales.x.time = {
+      tooltipFormat: 'HH:mm:ss',
+      displayFormats: {
+        second: 'HH:mm:ss',
+        minute: 'HH:mm',
+        hour: 'HH:mm'
+      }
+    };
+    tempChart.update();
+  }
+
+  function updateDailyChart() {
+    const grouped = {};
+    allData.forEach(e => {
+      const dateKey = e.time.toISOString().split('T')[0];
+      if (!grouped[dateKey]) grouped[dateKey] = [];
+      grouped[dateKey].push(e.temperature);
     });
 
-    chartRef.on("child_added", snapshot => {
-      const entry = snapshot.val();
-      if (entry && entry.timestamp && entry.temperature !== undefined) {
-        const time = new Date(entry.timestamp);
-        tempChart.data.labels.push(time);
-        tempChart.data.datasets[0].data.push(entry.temperature);
-        tempChart.update();
-      }
-    });
+    const labels = [];
+    const averages = [];
+
+    for (const [date, temps] of Object.entries(grouped)) {
+      const avg = temps.reduce((a, b) => a + b, 0) / temps.length;
+      labels.push(date);
+      averages.push(avg);
+    }
+
+    tempChart.data.labels = labels;
+    tempChart.data.datasets = [{
+      label: "Daily Avg (°C)",
+      data: averages,
+      backgroundColor: 'rgba(255,165,0,0.2)',
+      borderColor: 'rgba(255,165,0,1)',
+      borderWidth: 2,
+      fill: true,
+      tension: 0.3
+    }];
+    tempChart.options.scales.x.type = 'category';
+    tempChart.update();
+  }
+
+  document.getElementById("chartType").addEventListener("change", () => {
+    const view = document.getElementById("chartType").value;
+    if (view === "live") updateLiveChart();
+    else updateDailyChart();
   });
 </script>
 
