@@ -1,44 +1,69 @@
 # Arduino-Based Smart Temperature Monitoring System
 
-This project is a full-stack IoT system designed to monitor ambient temperature using an Arduino Uno R4 WiFi, a DHT11 temperature sensor, and a Node.js-based WebSocket server. Users can view real-time temperature readings via a browser dashboard and configure temperature thresholds that control LED indicators on the Arduino.
+This project is a full-stack IoT application designed to monitor ambient temperature using an Arduino Uno R4 WiFi and a DHT11 temperature sensor. It operates in a local development environment and uses a Node.js-based WebSocket server to relay data in real time between the Arduino and a browser-based dashboard. Users can observe temperature readings, configure custom thresholds, and receive immediate visual feedback through onboard LEDs.
 
 ## Features
 
-- Real-time temperature monitoring via WebSockets
-- Adjustable cold and hot temperature thresholds from a frontend dashboard
-- Visual feedback through colored LEDs on the Arduino (Red, Green, Blue)
-- Bi-directional WebSocket communication between the frontend and hardware
-- Threshold logic handled onboard with immediate visual response
-- Secure WebSocket support (WSS) via NGINX reverse proxy and SSL certificates
+- Real-time temperature updates displayed on a web dashboard
+- Adjustable cold and hot thresholds configurable per user
+- Visual LED indicators on the Arduino: Red (hot), Green (normal), Blue (cold)
+- Two-way WebSocket communication between the Arduino and browser
+- Threshold logic processed onboard with instant LED response
+- Optional daily average chart toggle for historical overview
+
 
 ## System Overview
 
-1. **Arduino Uno R4 WiFi** reads temperature from the DHT11 sensor.
-2. Temperature data is sent to a Node.js WebSocket server.
-3. The server broadcasts the data to connected clients (such as a web dashboard).
-4. The web dashboard updates live and allows the user to send updated thresholds.
-5. The Arduino receives threshold changes and updates its LED state accordingly.
+1. The **Arduino Uno R4 WiFi** reads ambient temperature values from a connected DHT11 sensor at regular intervals.
+2. These readings are transmitted over a local network using the WebSocket protocol to a locally hosted **Node.js WebSocket server**.
+3. The server receives incoming temperature data and broadcasts it in real time to all connected web clients, including a browser-based dashboard.
+4. The **frontend dashboard** displays live temperature readings and provides controls for users to update cold and hot threshold values.
+5. When thresholds are updated, the values are sent back to the Arduino, which compares the current temperature to the new thresholds and activates the appropriate **LED indicator** (Red, Green, or Blue) based on the temperature range.
+
 
 ## Repository Structure
 
-```
 Arduino/
   ├── ArduinoTempMonitor.ino
   └── tests/
       └── tests.txt
 
+FrontEnd/
+  ├── admin.html
+  ├── app.js
+  ├── auth.js
+  ├── chart.html
+  ├── firebase-config.js
+  ├── index.html
+  ├── login.html
+  ├── navbar.html
+  ├── register.html
+  ├── styles.css
+  ├── threshold.html
+  ├── package.json
+  ├── package-lock.json
+  ├── tests/
+  │   └── (test files)
+  └── lang/
+      ├── en.json
+      ├── it.json
+      └── i18n.js
+
 WebSocketServer/
   ├── server.js
   ├── package.json
+  ├── package-lock.json
+  ├── firebase-service-account.json
   └── tests/
       └── tests.txt
 
-Frontend/
-  ├── index.html
-  ├── app.js
-  ├── styles.css
-  └── (tests/ - to be added)
-```
+.github/
+  └── workflows/
+      └── node-ci.yml
+
+.gitignore
+README.md
+
 
 ## CI Integration
 
@@ -67,7 +92,14 @@ Tools used during testing include:
 
 ## Deployment
 
-Secure connections are handled using NGINX reverse proxy on port 8443 for WSS traffic. The WebSocket server runs on port 8081 locally. Port forwarding was configured to allow secure and non-secure traffic from both browser and Arduino clients..
+This system is currently deployed and tested in a local development environment.
+
+- The WebSocket server runs locally on port `8081` and accepts `ws://` connections from both the browser dashboard and the Arduino Uno R4 WiFi.
+- The frontend interface is accessed directly via `index.html` opened in a browser.
+- No NGINX reverse proxy or SSL (WSS) is currently configured, as the application does not require public access or secure WebSocket connections in this setup.
+- Firebase services are accessed remotely for authentication and real-time database operations.
+
+This setup is suitable for development and testing on a single machine or local network.
 
 ## License
 
