@@ -1,0 +1,20 @@
+Frontend Initialization and Navbar Load Test
+Each frontend page dynamically loads a common navigation bar by fetching navbar.html. After the navbar is inserted, language translations are applied based on the value stored in localStorage (en for English, it for Italian). This behavior was validated by selecting different languages during registration or login, refreshing the page, and confirming that page elements updated dynamically according to the selected language. Microsoft Edge Developer Tools were used to inspect network activity during the navbar.html fetch request and observe the correct replacement of data-i18n attributes after loading the corresponding translation JSON file.
+
+Firebase Authentication and Session Guard Test
+Authentication state management was implemented using firebase.auth().onAuthStateChanged on every frontend page. If no valid user session existed, the user was redirected to login.html. This behavior was tested by logging out, attempting to access protected pages (such as index.html or threshold.html), and verifying that redirection occurred immediately. Additionally, successful authentication stored the user UID in localStorage, which was confirmed by inspecting browser storage via Microsoft Edge's Application tab.
+
+WebSocket Initialization and Real-Time Update Test
+Upon successful authentication, each frontend page that required real-time updates (index.html, threshold.html, admin.html) initialized a WebSocket connection to ws://localhost:8888. The Microsoft Edge Console tab was used to verify successful WebSocket connection messages, UID registration, and ongoing message reception from the server. Live temperature values and LED status updates were observed updating the dashboard in real-time without manual page refresh.
+
+Threshold Management Test (threshold.html)
+Threshold values (cold and hot) were loaded from Firebase Realtime Database into the input fields when threshold.html was accessed. Upon modifying the thresholds and clicking the save button, the new values were sent via WebSocket to the backend server and simultaneously updated in the Firebase Database using .set(). This behavior was validated by observing outgoing WebSocket messages through Microsoft Edge DevTools and confirming that the database reflected the updated threshold values in near real-time.
+
+Live Chart and Data Aggregation Test (chart.html)
+The live temperature chart was tested by verifying that child_added listeners on /users/{uid}/temperatureLogs captured incoming data points. The Chart.js graph was observed updating dynamically every time a new temperature reading arrived. Switching between 'Live' (most recent 25 entries) and 'Daily' (date-grouped averages) modes was tested by toggling the view selector. The chart accurately averaged temperatures by date and rendered grouped points for daily visualization.
+
+Admin Panel Functionality Test (admin.html)
+The admin.html page was tested to ensure it correctly listed all users and their active or inactive session status by reading /users/ and /sessions/ from Firebase. The 'Kick' button was verified by triggering a write to /control/kick/{uid} and confirming that the targeted client received a WebSocket disconnect message and was logged out. CSV file downloads were tested by clicking the 'Download' button for a selected user, resulting in properly formatted CSV files containing temperature readings, timestamps, and LED status columns.
+
+Edge Developer Tools Utilization
+Microsoft Edge Developer Tools were extensively used during frontend testing. The Console tab monitored real-time WebSocket connections, incoming temperature updates, and WebSocket messages. The Network tab confirmed Firebase REST API reads and writes, as well as successful WebSocket upgrade handshakes. The Application tab verified localStorage values for UID and language persistence across pages. Performance analysis confirmed that real-time data updates occurred without noticeable rendering delays or bottlenecks.
