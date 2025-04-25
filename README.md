@@ -65,14 +65,38 @@ WebSocketServer/
 README.md
 
 
-## CI Integration
+## CI/CD Pipeline Details
 
-A GitHub Actions workflow is used for Continuous Integration. The workflow performs the following:
-- Checks out the codebase
-- Installs dependencies for the Node.js WebSocket server
-- Optionally lints and performs basic runtime validation
+A GitHub Actions-based Continuous Integration (CI) pipeline is configured to automatically verify server functionality and backend reliability on every push or pull request to the `main` branch.
 
-CI workflow file location:
+The CI/CD pipeline performs the following stages:
+
+- **Checkout and Setup**  
+  Retrieves the latest repository code and sets up Node.js version 18 on an Ubuntu environment.
+
+- **Dependency Installation**  
+  Installs project dependencies inside the `WebSocketServer` directory using `npm install`.
+
+- **Code Linting**  
+  Executes ESLint against the Node.js WebSocket server codebase. Lint errors are logged for review but do not fail the build at this stage.
+
+- **Server Startup**  
+  Starts the Node.js WebSocket server (`server.js`) in the background to enable real connection testing.
+
+- **WebSocket Client Test**  
+  Executes a custom Node.js script (`tests/websocket-test.js`) that connects to the running WebSocket server, verifies connection success, and sends a test message.
+
+- **Firebase Admin SDK Test**  
+  Executes another Node.js script (`tests/firebase-test.js`) that initializes Firebase Admin SDK, performs a write to the Realtime Database (`/ci_test_node`), and then cleans up the test data.
+
+- **Server Shutdown**  
+  Terminates the background Node.js server process to prevent lingering jobs in the GitHub Actions runner.
+
+The CI/CD workflow ensures that:
+- The WebSocket server boots without errors.
+- Real-time WebSocket client connections can be successfully established.
+- Firebase database connections are active and capable of writing.
+- Basic code quality is maintained via linting feedback.
 ```
 .github/workflows/node-ci.yml
 ```
