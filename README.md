@@ -135,13 +135,13 @@ This setup is suitable for development and testing on a single machine or local 
 
 The following formal documents are available in the repository for review:
 
-- [Software Requirements Specification (SRS)](./Software_Requirements_Specification.pdf)  
+- [Software Requirements Specification (SRS)](./Software_Requirements_Specification_Documentation.pdf)  
   Defines system scope, requirements, and external interfaces.
   
 - [Software Design Document (SDD)](./Software_Design_Document.pdf)  
   Describes architecture, component design, data models, and system interactions.
   
-- [Testing Documentation](./Testing_Document.pdf)  
+- [Testing Documentation](./Testing_Documentation.pdf)  
   Details unit tests, integration tests, system tests, and validation procedures.
 
 These documents collectively define the system requirements, design, and verification processes used to develop the Arduino-Based Smart Temperature Monitoring System.
