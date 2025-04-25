@@ -55,7 +55,9 @@ WebSocketServer/
   ├── package-lock.json
   ├── firebase-service-account.json
   └── tests/
-      └── tests.txt
+      ├── tests.txt
+      ├── firebase-test.js
+      └── websocket-test.js
 
 .github/
   └── workflows/
@@ -63,6 +65,10 @@ WebSocketServer/
 
 .gitignore
 README.md
+Software_Requirements_Specification.pdf
+Software_Design_Document.pdf
+Testing_Document.pdf
+
 
 
 ## CI/CD Pipeline Details
@@ -124,6 +130,22 @@ This system is currently deployed and tested in a local development environment.
 - Firebase services are accessed remotely for authentication and real-time database operations.
 
 This setup is suitable for development and testing on a single machine or local network.
+
+## Project Documentation
+
+The following formal documents are available in the repository for review:
+
+- [Software Requirements Specification (SRS)](./Software_Requirements_Specification.pdf)  
+  Defines system scope, requirements, and external interfaces.
+  
+- [Software Design Document (SDD)](./Software_Design_Document.pdf)  
+  Describes architecture, component design, data models, and system interactions.
+  
+- [Testing Documentation](./Testing_Document.pdf)  
+  Details unit tests, integration tests, system tests, and validation procedures.
+
+These documents collectively define the system requirements, design, and verification processes used to develop the Arduino-Based Smart Temperature Monitoring System.
+
 
 ## License
 
