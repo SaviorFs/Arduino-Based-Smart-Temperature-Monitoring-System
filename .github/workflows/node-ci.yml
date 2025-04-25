@@ -26,5 +26,23 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Basic runtime check
-        run: node server.js &
+      - name: Lint server files
+        run: npx eslint . || echo "Lint errors detected (but not gonna fail build yet)"
+
+      - name: Start server in background
+        run: |
+          node server.js &
+          sleep 5
+
+      - name: WebSocket Client Test
+        run: |
+          npm install ws
+          node ./tests/websocket-test.js
+
+      - name: Firebase Admin SDK Test   
+        run: |
+          node ./tests/firebase-test.js
+
+      - name: Kill background server
+        run: |
+          pkill -f "node server.js" || true
