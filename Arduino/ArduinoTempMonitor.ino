@@ -155,14 +155,14 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
 
     if (doc.containsKey("coldThreshold")) {
       coldThreshold = doc["coldThreshold"];
-      Serial.print("⬇️  Updated Cold Threshold: ");
+      Serial.print("Updated Cold Threshold: ");
       Serial.println(coldThreshold);
       thresholdUpdated = true;
     }
 
     if (doc.containsKey("hotThreshold")) {
       hotThreshold = doc["hotThreshold"];
-      Serial.print("⬆️  Updated Hot Threshold: ");
+      Serial.print("Updated Hot Threshold: ");
       Serial.println(hotThreshold);
       thresholdUpdated = true;
     }
